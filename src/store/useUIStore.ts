@@ -1,8 +1,17 @@
 import { create } from 'zustand'
 import { PageType } from '../types'
 
-export type ActiveView = 'canvas' | 'wireframe' | 'print'
+export type ActiveView = 'canvas' | 'wireframe' | 'print' | 'design' | 'studio'
 export type ThemeMode = 'light' | 'dark' | 'system'
+
+function getInitialView(): ActiveView {
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.pathname.includes('studio') || window.location.hash.includes('studio')) {
+      return 'studio'
+    }
+  }
+  return 'canvas'
+}
 
 interface ToastMessage {
   id: string
@@ -26,6 +35,14 @@ interface UIStoreState {
   togglePageSelection: (id: string) => void
   clearSelection: () => void
 
+  // Visual Canvas & Element Selection
+  selectedElementIds: string[]
+  setSelectedElementIds: (ids: string[]) => void
+  toggleElementSelection: (id: string, multi?: boolean) => void
+  clearElementSelection: () => void
+  activeWireframeTool: 'select' | 'frame' | 'text' | 'button' | 'shape' | 'image' | 'container' | 'card' | 'input' | 'table'
+  setActiveWireframeTool: (tool: 'select' | 'frame' | 'text' | 'button' | 'shape' | 'image' | 'container' | 'card' | 'input' | 'table') => void
+
   // Search & Filter
   searchQuery: string
   setSearchQuery: (query: string) => void
@@ -38,11 +55,15 @@ interface UIStoreState {
   isSidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
+  sidebarActiveTab: 'pages' | 'layers'
+  setSidebarActiveTab: (tab: 'pages' | 'layers') => void
   isPropertiesPanelOpen: boolean
   togglePropertiesPanel: () => void
   setPropertiesPanelOpen: (open: boolean) => void
-  propertiesActiveTab: 'page' | 'sections' | 'wireframe'
-  setPropertiesActiveTab: (tab: 'page' | 'sections' | 'wireframe') => void
+  propertiesActiveTab: 'page' | 'sections' | 'wireframe' | 'design'
+  setPropertiesActiveTab: (tab: 'page' | 'sections' | 'wireframe' | 'design') => void
+  activeDesignTab: 'design' | 'styleguide' | 'typography'
+  setActiveDesignTab: (tab: 'design' | 'styleguide' | 'typography') => void
 
   // Modals
   isGeneratorOpen: boolean
@@ -51,6 +72,8 @@ interface UIStoreState {
   setTemplatePickerOpen: (open: boolean) => void
   isDashboardOpen: boolean
   setDashboardOpen: (open: boolean) => void
+  isStyleGuideOpen: boolean
+  setStyleGuideOpen: (open: boolean) => void
   isExportOpen: boolean
   setExportOpen: (open: boolean) => void
   isImportOpen: boolean
@@ -78,8 +101,19 @@ interface UIStoreState {
   removeToast: (id: string) => void
 }
 
+function safeGetStorage(key: string, fallback: string): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      return window.localStorage.getItem(key) || fallback
+    } catch {
+      return fallback
+    }
+  }
+  return fallback
+}
+
 function getInitialTheme(): ThemeMode {
-  const stored = localStorage.getItem('opensitemap_theme') as ThemeMode
+  const stored = safeGetStorage('opensitemap_theme', 'dark') as ThemeMode
   if (stored === 'light' || stored === 'dark' || stored === 'system') {
     return stored
   }
@@ -87,8 +121,18 @@ function getInitialTheme(): ThemeMode {
 }
 
 export const useUIStore = create<UIStoreState>((set, get) => ({
-  activeView: 'canvas',
-  setActiveView: (view) => set({ activeView: view }),
+  activeView: getInitialView(),
+  setActiveView: (view) => {
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      try {
+        const targetPath = view === 'studio' ? '/studio' : '/'
+        if (window.location.pathname !== targetPath) {
+          window.history.pushState(null, '', targetPath)
+        }
+      } catch {}
+    }
+    set({ activeView: view })
+  },
 
   selectedPageId: null,
   setSelectedPageId: (id) =>
@@ -111,7 +155,26 @@ export const useUIStore = create<UIStoreState>((set, get) => ({
       set({ multiSelectedPageIds: [...current, id] })
     }
   },
-  clearSelection: () => set({ selectedPageId: null, selectedSectionId: null, multiSelectedPageIds: [] }),
+  clearSelection: () => set({ selectedPageId: null, selectedSectionId: null, multiSelectedPageIds: [], selectedElementIds: [] }),
+
+  // Visual Canvas & Element Selection
+  selectedElementIds: [],
+  setSelectedElementIds: (ids) => set({ selectedElementIds: ids }),
+  toggleElementSelection: (id, multi = false) => {
+    const current = get().selectedElementIds
+    if (!multi) {
+      set({ selectedElementIds: [id] })
+      return
+    }
+    if (current.includes(id)) {
+      set({ selectedElementIds: current.filter((x) => x !== id) })
+    } else {
+      set({ selectedElementIds: [...current, id] })
+    }
+  },
+  clearElementSelection: () => set({ selectedElementIds: [] }),
+  activeWireframeTool: 'select',
+  setActiveWireframeTool: (tool) => set({ activeWireframeTool: tool }),
 
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -123,6 +186,8 @@ export const useUIStore = create<UIStoreState>((set, get) => ({
   isSidebarOpen: true,
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+  sidebarActiveTab: 'pages',
+  setSidebarActiveTab: (tab) => set({ sidebarActiveTab: tab }),
 
   isPropertiesPanelOpen: true,
   togglePropertiesPanel: () => set((s) => ({ isPropertiesPanelOpen: !s.isPropertiesPanelOpen })),
@@ -130,6 +195,8 @@ export const useUIStore = create<UIStoreState>((set, get) => ({
 
   propertiesActiveTab: 'page',
   setPropertiesActiveTab: (tab) => set({ propertiesActiveTab: tab }),
+  activeDesignTab: 'design',
+  setActiveDesignTab: (tab) => set({ activeDesignTab: tab }),
 
   isGeneratorOpen: false,
   setGeneratorOpen: (open) => set({ isGeneratorOpen: open }),
@@ -137,6 +204,8 @@ export const useUIStore = create<UIStoreState>((set, get) => ({
   setTemplatePickerOpen: (open) => set({ isTemplatePickerOpen: open }),
   isDashboardOpen: false,
   setDashboardOpen: (open) => set({ isDashboardOpen: open }),
+  isStyleGuideOpen: false,
+  setStyleGuideOpen: (open) => set({ isStyleGuideOpen: open }),
   isExportOpen: false,
   setExportOpen: (open) => set({ isExportOpen: open }),
   isImportOpen: false,
@@ -154,27 +223,41 @@ export const useUIStore = create<UIStoreState>((set, get) => ({
 
   theme: getInitialTheme(),
   setTheme: (theme) => {
-    localStorage.setItem('opensitemap_theme', theme)
-    const root = document.documentElement
-    root.classList.remove('light', 'dark')
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem('opensitemap_theme', theme)
+      } catch {}
+    }
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement
+      root.classList.remove('light', 'dark')
 
-    if (theme === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      root.classList.add(isDark ? 'dark' : 'light')
-    } else {
-      root.classList.add(theme)
+      if (theme === 'system') {
+        const isDark = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
+        root.classList.add(isDark ? 'dark' : 'light')
+      } else {
+        root.classList.add(theme)
+      }
     }
     set({ theme })
   },
 
-  ollamaEndpoint: localStorage.getItem('opensitemap_ollama_endpoint') || 'http://localhost:11434',
+  ollamaEndpoint: safeGetStorage('opensitemap_ollama_endpoint', 'http://localhost:11434'),
   setOllamaEndpoint: (endpoint) => {
-    localStorage.setItem('opensitemap_ollama_endpoint', endpoint)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem('opensitemap_ollama_endpoint', endpoint)
+      } catch {}
+    }
     set({ ollamaEndpoint: endpoint })
   },
-  ollamaModel: localStorage.getItem('opensitemap_ollama_model') || 'llama3',
+  ollamaModel: safeGetStorage('opensitemap_ollama_model', 'llama3'),
   setOllamaModel: (model) => {
-    localStorage.setItem('opensitemap_ollama_model', model)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem('opensitemap_ollama_model', model)
+      } catch {}
+    }
     set({ ollamaModel: model })
   },
 

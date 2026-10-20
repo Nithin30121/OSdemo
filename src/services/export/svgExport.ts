@@ -1,13 +1,19 @@
-import { Project, Page } from '../../types'
+import { Project, Page, Section } from '../../types'
+import { calculateNodeHeight, NODE_WIDTH } from '../../components/canvas/layoutUtils'
 
 export function generateSitemapSvg(project: Project): string {
   if (project.pages.length === 0) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200"><text x="200" y="100" text-anchor="middle" fill="#888">Empty Sitemap</text></svg>`
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200"><rect width="100%" height="100%" fill="#090d16"/><text x="200" y="100" text-anchor="middle" fill="#64748b" font-family="-apple-system, sans-serif">Empty Sitemap</text></svg>`
   }
 
-  const CARD_WIDTH = 260
-  const CARD_HEIGHT = 160
+  const CARD_WIDTH = NODE_WIDTH
   const PADDING = 80
+
+  // Pre-calculate heights for all pages
+  const heightMap = new Map<string, number>()
+  project.pages.forEach((p) => {
+    heightMap.set(p.id, calculateNodeHeight(p, project.sections))
+  })
 
   // Calculate bounding box
   let minX = Infinity
@@ -16,126 +22,208 @@ export function generateSitemapSvg(project: Project): string {
   let maxY = -Infinity
 
   project.pages.forEach((p) => {
+    const cardHeight = heightMap.get(p.id) || 200
     minX = Math.min(minX, p.position.x)
     minY = Math.min(minY, p.position.y)
     maxX = Math.max(maxX, p.position.x + CARD_WIDTH)
-    maxY = Math.max(maxY, p.position.y + CARD_HEIGHT)
+    maxY = Math.max(maxY, p.position.y + cardHeight)
   })
 
-  const width = Math.max(800, maxX - minX + PADDING * 2)
-  const height = Math.max(600, maxY - minY + PADDING * 2 + 60) // Extra 60 for title bar
-  const offsetX = PADDING - minX
-  const offsetY = PADDING - minY + 60
+  const width = Math.max(900, Math.round(maxX - minX + PADDING * 2))
+  const height = Math.max(650, Math.round(maxY - minY + PADDING * 2 + 70))
+  const offsetX = Math.round(PADDING - minX)
+  const offsetY = Math.round(PADDING - minY + 70)
 
   const pageMap = new Map<string, Page>()
   project.pages.forEach((p) => pageMap.set(p.id, p))
 
   const svgParts: string[] = []
 
+  const NEO_PALETTE: Record<string, { bg: string; text: string; catText: string }> = {
+    cobalt: { bg: '#1769E8', text: '#050B17', catText: '#0B215E' },
+    blue: { bg: '#1769E8', text: '#050B17', catText: '#0B215E' },
+    red: { bg: '#F04444', text: '#050B17', catText: '#5C0E0E' },
+    yellow: { bg: '#F9E52B', text: '#050B17', catText: '#633903' },
+    purple: { bg: '#873FF0', text: '#050B17', catText: '#340B6B' },
+    teal: { bg: '#29C7A3', text: '#050B17', catText: '#074536' },
+    pink: { bg: '#F45AA8', text: '#050B17', catText: '#5C0B36' },
+    cream: { bg: '#F4E8D6', text: '#050B17', catText: '#44403C' },
+  }
+
+  const getSvgTheme = (color?: string, pageType?: string) => {
+    if (color && NEO_PALETTE[color.toLowerCase()]) {
+      return NEO_PALETTE[color.toLowerCase()]
+    }
+    const c = (color || '').toLowerCase()
+    if (c.includes('red') || c === '#f04444') return NEO_PALETTE.red
+    if (c.includes('yellow') || c === '#f9e52b') return NEO_PALETTE.yellow
+    if (c.includes('purple') || c === '#873ff0') return NEO_PALETTE.purple
+    if (c.includes('teal') || c.includes('cyan') || c === '#29c7a3') return NEO_PALETTE.teal
+    if (c.includes('pink') || c === '#f45aa8') return NEO_PALETTE.pink
+    if (c.includes('cream') || c === '#f4e8d6') return NEO_PALETTE.cream
+    if (c.includes('blue') || c === '#1769e8') return NEO_PALETTE.cobalt
+
+    switch (pageType) {
+      case 'landing':
+      case 'dashboard':
+        return NEO_PALETTE.cobalt
+      case 'product':
+      case 'content':
+        return NEO_PALETTE.yellow
+      case 'checkout':
+      case 'auth':
+        return NEO_PALETTE.red
+      case 'blog':
+        return NEO_PALETTE.purple
+      default:
+        return NEO_PALETTE.cobalt
+    }
+  }
+
   svgParts.push(`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <defs>
-    <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.08" />
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.35" />
     </filter>
-    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3b82f6" />
-      <stop offset="100%" stop-color="#8b5cf6" />
-    </linearGradient>
     <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 1 L 8 5 L 0 9 z" fill="#94a3b8" />
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#64748B" />
     </marker>
   </defs>
 
-  <!-- Background -->
-  <rect width="100%" height="100%" fill="#f8fafc" />
+  <!-- Canvas Background -->
+  <rect width="100%" height="100%" fill="#030817" />
   
-  <!-- Grid dots -->
-  <pattern id="dotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
-    <circle cx="2" cy="2" r="1.5" fill="#cbd5e1" opacity="0.6"/>
+  <!-- Subtle Grid Dots (74px spacing, ~3.5px size) -->
+  <pattern id="dotGrid" width="74" height="74" patternUnits="userSpaceOnUse">
+    <circle cx="37" cy="37" r="1.75" fill="#1B263B" opacity="0.8"/>
   </pattern>
   <rect width="100%" height="100%" fill="url(#dotGrid)" />
 
   <!-- Document Header -->
-  <g transform="translate(40, 45)">
-    <text x="0" y="0" font-size="22" font-weight="700" fill="#0f172a">${escapeXml(project.name)}</text>
-    <text x="0" y="22" font-size="13" fill="#64748b">${escapeXml(project.description || 'Information Architecture & Page Hierarchy')} • ${project.pages.length} Pages</text>
+  <g transform="translate(40, 48)">
+    <text x="0" y="0" font-size="20" font-weight="900" fill="#F8F5EF" letter-spacing="1">${escapeXml(project.name)}</text>
+    <text x="0" y="22" font-size="12" fill="#94a3b8">${escapeXml(project.description || 'OpenSitemap Visual Architecture')} • ${project.pages.length} Pages • ${project.sections.length} Sections</text>
   </g>
 `)
 
   // Render Edges
-  svgParts.push('<g id="edges">')
+  svgParts.push('  <g id="edges">')
   project.edges.forEach((edge) => {
     const sourcePage = pageMap.get(edge.source)
     const targetPage = pageMap.get(edge.target)
     if (!sourcePage || !targetPage) return
 
-    const sx = sourcePage.position.x + offsetX + CARD_WIDTH / 2
-    const sy = sourcePage.position.y + offsetY + CARD_HEIGHT
-    const tx = targetPage.position.x + offsetX + CARD_WIDTH / 2
-    const ty = targetPage.position.y + offsetY
+    const sourceHeight = heightMap.get(sourcePage.id) || 200
+    const sx = Math.round(sourcePage.position.x + offsetX + CARD_WIDTH / 2)
+    const sy = Math.round(sourcePage.position.y + offsetY + sourceHeight)
+    const tx = Math.round(targetPage.position.x + offsetX + CARD_WIDTH / 2)
+    const ty = Math.round(targetPage.position.y + offsetY)
 
-    // Bezier curve
-    const cy1 = sy + Math.max(30, (ty - sy) / 2)
-    const cy2 = ty - Math.max(30, (ty - sy) / 2)
+    // Orthogonal tree connector
+    const midY = Math.round(sy + (ty - sy) / 2)
+    const pathD = `M ${sx} ${sy} L ${sx} ${midY} L ${tx} ${midY} L ${tx} ${ty}`
 
-    svgParts.push(`  <path d="M ${sx} ${sy} C ${sx} ${cy1}, ${tx} ${cy2}, ${tx} ${ty}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)" />`)
+    svgParts.push(`    <path d="${pathD}" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)" />`)
   })
-  svgParts.push('</g>')
+  svgParts.push('  </g>')
 
-  // Render Nodes
-  svgParts.push('<g id="nodes">')
+  // Render Nodes with Vertically Stacked Cream Sections
+  svgParts.push('  <g id="nodes">')
   project.pages.forEach((page) => {
-    const x = page.position.x + offsetX
-    const y = page.position.y + offsetY
+    const x = Math.round(page.position.x + offsetX)
+    const y = Math.round(page.position.y + offsetY)
+    const cardHeight = heightMap.get(page.id) || 200
+    const theme = getSvgTheme(page.color, page.type)
+    const categoryLabel = page.notes && page.notes.includes('/') ? page.notes : page.type.toUpperCase()
 
     const sections = project.sections
       .filter((s) => s.pageId === page.id)
       .sort((a, b) => a.position - b.position)
 
-    const accentColor = page.color || '#3b82f6'
-
     svgParts.push(`
-  <g transform="translate(${x}, ${y})" filter="url(#card-shadow)">
-    <!-- Node Card Container -->
-    <rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" />
-    <rect width="${CARD_WIDTH}" height="5" rx="2" fill="${accentColor}" />
+    <g transform="translate(${x}, ${y})" filter="url(#card-shadow)">
+      <!-- Card Container Shell -->
+      <rect width="${CARD_WIDTH}" height="${cardHeight}" rx="14" fill="${theme.bg}" stroke="rgba(0,0,0,0.2)" stroke-width="1" />
 
-    <!-- Top Badge Row -->
-    <rect x="14" y="16" width="60" height="20" rx="4" fill="#eff6ff" />
-    <text x="44" y="30" font-size="10" font-weight="600" fill="#2563eb" text-anchor="middle">${escapeXml(page.type.toUpperCase())}</text>
+      <!-- Page Header -->
+      <g transform="translate(14, 16)">
+        <!-- Category Tag -->
+        <text x="0" y="8" font-size="10" font-weight="800" fill="${theme.catText}" letter-spacing="1">${escapeXml(categoryLabel)}</text>
+        
+        <!-- Bold Condensed Page Title -->
+        <text x="0" y="32" font-size="20" font-weight="900" fill="#050B17" letter-spacing="0.5">${escapeXml(page.name.toUpperCase().slice(0, 20))}</text>
+      </g>
 
-    <text x="${CARD_WIDTH - 14}" y="30" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="end">${sections.length} sections</text>
+      <!-- Vertically Stacked Cream Sections List -->
+      <g transform="translate(10, 56)">`)
 
-    <!-- Page Title & Slug -->
-    <text x="14" y="60" font-size="15" font-weight="700" fill="#0f172a">${escapeXml(page.name)}</text>
-    <text x="14" y="78" font-size="11" font-family="monospace" fill="#64748b">${escapeXml(page.slug)}</text>
+    let currentY = 0
 
-    <!-- Divider -->
-    <line x1="14" y1="90" x2="${CARD_WIDTH - 14}" y2="90" stroke="#f1f5f9" stroke-width="1" />
+    if (sections.length === 0) {
+      svgParts.push(`
+        <rect x="0" y="${currentY}" width="${CARD_WIDTH - 20}" height="32" rx="6" fill="#F4E8D6" stroke="rgba(0,0,0,0.15)" />
+        <text x="${(CARD_WIDTH - 20) / 2}" y="${currentY + 20}" font-size="10" fill="#64748b" text-anchor="middle">No sections</text>
+      `)
+    } else {
+      sections.forEach((sec: Section) => {
+        const hasDesc = !!(sec.description && sec.description.trim().length > 0)
+        const isFeatured = sec.color === '#F9E52B' || sec.notes === 'featured' || sec.name.toLowerCase().includes('hero')
+        const rowBg = isFeatured ? '#FEF08A' : '#F4E8D6'
 
-    <!-- Preview Sections snippet -->
-    <g transform="translate(14, 104)">
-      ${sections
-        .slice(0, 3)
-        .map(
-          (s, idx) => `
-        <text x="0" y="${idx * 16}" font-size="11" fill="#475569">
-          <tspan fill="${s.isGlobal ? '#3b82f6' : '#94a3b8'}">•</tspan> ${escapeXml(s.name.slice(0, 26))}
-        </text>
-      `,
-        )
-        .join('')}
-      ${sections.length > 3 ? `<text x="0" y="48" font-size="10" fill="#94a3b8">+ ${sections.length - 3} more...</text>` : ''}
-    </g>
-  </g>`)
+        let rowHeight = 30
+        if (hasDesc) {
+          const charLen = sec.description.trim().length
+          const lines = Math.min(2, Math.max(1, Math.ceil(charLen / 30)))
+          rowHeight += lines * 14 + 4
+        }
+
+        svgParts.push(`
+        <g transform="translate(0, ${currentY})">
+          <!-- Section Row Box -->
+          <rect width="${CARD_WIDTH - 20}" height="${rowHeight}" rx="6" fill="${rowBg}" stroke="rgba(0,0,0,0.15)" stroke-width="1" />
+
+          <!-- Section Title -->
+          <text x="10" y="19" font-size="11" font-weight="700" fill="#0F172A">${escapeXml(sec.name.slice(0, 28))}</text>
+`)
+
+        if (hasDesc) {
+          const descText = sec.description.trim()
+          const words = descText.split(' ')
+          const lines: string[] = []
+          let line = ''
+          for (const word of words) {
+            if ((line + ' ' + word).trim().length > 30) {
+              lines.push(line.trim())
+              line = word
+              if (lines.length >= 2) break
+            } else {
+              line += ' ' + word
+            }
+          }
+          if (line.trim().length > 0 && lines.length < 2) {
+            lines.push(line.trim())
+          }
+
+          lines.forEach((l, lIdx) => {
+            svgParts.push(`          <text x="10" y="${33 + lIdx * 14}" font-size="9" fill="#475569">${escapeXml(l)}</text>`)
+          })
+        }
+
+        svgParts.push(`        </g>`)
+        currentY += rowHeight + 6
+      })
+    }
+
+    svgParts.push(`      </g>
+    </g>`)
   })
-  svgParts.push('</g>')
+  svgParts.push('  </g>')
 
   // Footer branding
   svgParts.push(`
-  <g transform="translate(${width - 240}, ${height - 24})">
-    <text font-size="11" fill="#94a3b8">Exported with OpenSitemap</text>
+  <g transform="translate(${width - 200}, ${height - 20})">
+    <text font-size="11" fill="#475569" font-weight="600">OpenSitemap</text>
   </g>
 </svg>`)
 

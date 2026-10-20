@@ -78,11 +78,10 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
   return (
     <div
-      className={`rounded-xl border transition-all text-xs ${
-        section.isGlobal
+      className={`rounded-xl border transition-all text-xs ${section.isGlobal
           ? 'border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20'
           : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
-      }`}
+        }`}
     >
       {/* Top Main Bar */}
       <div className="p-3 flex items-center justify-between gap-2">

@@ -1,5 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
-import { Project } from '../../types'
+import { Project, StudioDocument, StudioAsset } from '../../types'
 
 interface OpenSitemapDB extends DBSchema {
   projects: {
@@ -11,10 +11,20 @@ interface OpenSitemapDB extends DBSchema {
     key: string
     value: { key: string; value: string }
   }
+  studio_documents: {
+    key: string
+    value: StudioDocument
+    indexes: { 'by-updated': string }
+  }
+  studio_assets: {
+    key: string
+    value: StudioAsset
+    indexes: { 'by-created': string }
+  }
 }
 
 const DB_NAME = 'opensitemap_db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 let dbPromise: Promise<IDBPDatabase<OpenSitemapDB>> | null = null
 
@@ -28,6 +38,14 @@ export function getDB(): Promise<IDBPDatabase<OpenSitemapDB>> {
         }
         if (!db.objectStoreNames.contains('appState')) {
           db.createObjectStore('appState', { keyPath: 'key' })
+        }
+        if (!db.objectStoreNames.contains('studio_documents')) {
+          const studioStore = db.createObjectStore('studio_documents', { keyPath: 'id' })
+          studioStore.createIndex('by-updated', 'updatedAt')
+        }
+        if (!db.objectStoreNames.contains('studio_assets')) {
+          const assetsStore = db.createObjectStore('studio_assets', { keyPath: 'id' })
+          assetsStore.createIndex('by-created', 'createdAt')
         }
       },
     })

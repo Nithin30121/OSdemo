@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react'
+import { ReactFlowProvider } from '@xyflow/react'
 import { Header } from './components/layout/Header'
 import { Sidebar } from './components/layout/Sidebar'
 import { PropertiesPanel } from './components/layout/PropertiesPanel'
 import { SitemapCanvas } from './components/canvas/SitemapCanvas'
 import { WireframeWorkspace } from './components/wireframe/WireframeWorkspace'
+import { StyleGuideWorkspace } from './components/design/StyleGuideWorkspace'
 import { PrintPreviewModal } from './components/export/PrintPreviewModal'
+import { StudioWorkspace } from './components/studio/StudioWorkspace'
 import { GeneratorModal } from './components/generator/GeneratorModal'
 import { SectionLibraryModal } from './components/section/SectionLibraryModal'
 import { ProjectDashboardModal } from './components/dashboard/ProjectDashboardModal'
@@ -21,6 +24,7 @@ export function App() {
   const init = useProjectStore((s) => s.init)
   const isLoaded = useProjectStore((s) => s.isLoaded)
   const activeView = useUIStore((s) => s.activeView)
+  const setActiveView = useUIStore((s) => s.setActiveView)
   const theme = useUIStore((s) => s.theme)
 
   // Initialize store and keyboard shortcuts
@@ -29,6 +33,21 @@ export function App() {
   }, [init])
 
   useKeyboardShortcuts()
+
+  // Browser popstate navigation sync
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined' && window.location) {
+        if (window.location.pathname.includes('studio') || window.location.hash.includes('studio')) {
+          setActiveView('studio')
+        } else {
+          setActiveView('canvas')
+        }
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [setActiveView])
 
   // Apply dark mode class to root document element
   useEffect(() => {
@@ -56,38 +75,51 @@ export function App() {
     )
   }
 
-  return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased font-sans">
-      {/* Top Main Navigation Toolbar */}
-      <Header />
-
-      {/* Main App Workspace Area */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar */}
-        <Sidebar />
-
-        {/* Center Workspace (Switchable: Sitemap Canvas vs Wireframe Studio vs Print Spec) */}
-        <main className="flex-1 h-full overflow-hidden flex relative">
-          {activeView === 'canvas' && <SitemapCanvas />}
-          {activeView === 'wireframe' && <WireframeWorkspace />}
-          {activeView === 'print' && <PrintPreviewModal />}
-        </main>
-
-        {/* Right Properties & Section Inspector Panel (only in canvas/wireframe modes) */}
-        {activeView !== 'print' && <PropertiesPanel />}
+  // When Studio is active, render dedicated full-screen Studio workspace
+  if (activeView === 'studio') {
+    return (
+      <div className="h-screen w-screen overflow-hidden bg-[#242424] text-[#F2F2F2] antialiased font-sans">
+        <StudioWorkspace />
+        <ToastContainer />
       </div>
+    )
+  }
 
-      {/* Modals & Dialogs */}
-      <GeneratorModal />
-      <SectionLibraryModal />
-      <ProjectDashboardModal />
-      <ExportModal />
-      <ImportModal />
-      <OllamaSettingsModal />
+  return (
+    <ReactFlowProvider>
+      <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#202020] text-[#F3F3F3] antialiased font-sans">
+        {/* Top Main Navigation Toolbar */}
+        <Header />
 
-      {/* Toast Notifications */}
-      <ToastContainer />
-    </div>
+        {/* Main App Workspace Area */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Left Sidebar */}
+          <Sidebar />
+
+          {/* Center Workspace (Switchable: Sitemap Canvas vs Wireframe Studio vs Style Guide vs Print Spec) */}
+          <main className="flex-1 h-full overflow-hidden flex relative">
+            {activeView === 'canvas' && <SitemapCanvas />}
+            {activeView === 'wireframe' && <WireframeWorkspace />}
+            {activeView === 'design' && <StyleGuideWorkspace />}
+            {activeView === 'print' && <PrintPreviewModal />}
+          </main>
+
+          {/* Right Properties & Section Inspector Panel (only in canvas/wireframe modes) */}
+          {activeView !== 'print' && activeView !== 'design' && <PropertiesPanel />}
+        </div>
+
+        {/* Modals & Dialogs */}
+        <GeneratorModal />
+        <SectionLibraryModal />
+        <ProjectDashboardModal />
+        <ExportModal />
+        <ImportModal />
+        <OllamaSettingsModal />
+
+        {/* Toast Notifications */}
+        <ToastContainer />
+      </div>
+    </ReactFlowProvider>
   )
 }
 

@@ -89,6 +89,81 @@ export interface CanvasEdge {
 
 export type ViewportMode = 'desktop' | 'tablet' | 'mobile'
 
+export interface ElementStroke {
+  color: string
+  width: number
+  style?: 'solid' | 'dashed' | 'dotted'
+  position?: 'inside' | 'center' | 'outside'
+}
+
+export interface ElementShadow {
+  x: number
+  y: number
+  blur: number
+  spread: number
+  color: string
+  inset?: boolean
+}
+
+export interface ElementTypography {
+  fontFamily?: string
+  fontWeight?: number | string
+  fontSize?: number
+  lineHeight?: number | string
+  letterSpacing?: number | string
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
+  color?: string
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+}
+
+export interface ElementLayout {
+  x: number
+  y: number
+  width: number
+  height: number
+  rotation?: number
+  isLocked?: boolean
+  isHidden?: boolean
+  zIndex?: number
+  aspectRatioLocked?: boolean
+}
+
+export interface ElementStyle {
+  fill?: string
+  opacity?: number
+  cornerRadius?: number
+  stroke?: ElementStroke
+  shadow?: ElementShadow
+  typography?: ElementTypography
+  textStyleId?: string
+}
+
+export type VisualElementType =
+  | 'frame'
+  | 'text'
+  | 'button'
+  | 'shape'
+  | 'image'
+  | 'container'
+  | 'card'
+  | 'input'
+  | 'table'
+  | 'navbar'
+  | 'badge'
+  | 'custom'
+
+export interface VisualElement {
+  id: string
+  name: string
+  type: VisualElementType
+  layout: ElementLayout
+  style: ElementStyle
+  content?: string
+  props?: Record<string, any>
+  parentId?: string | null
+  sectionId?: string
+}
+
 export interface WireframeComponent {
   id: string
   sectionId: string
@@ -106,6 +181,11 @@ export interface WireframeComponent {
     placeholderItems?: Array<{ title: string; desc: string; meta?: string }>
     customNotes?: string
   }
+  layout?: ElementLayout
+  style?: ElementStyle
+  elements?: VisualElement[]
+  isLocked?: boolean
+  isHidden?: boolean
 }
 
 export interface WireframePageData {
@@ -117,6 +197,39 @@ export interface WireframePageData {
     showWireframeLabels: boolean
     theme: 'wireframe-classic' | 'wireframe-clean'
   }
+  elements?: VisualElement[]
+}
+
+export interface ColorToken {
+  id: string
+  name: string
+  hex: string
+  category: 'primary' | 'secondary' | 'accent' | 'neutral' | 'semantic'
+}
+
+export interface TextStyleToken {
+  id: string
+  name: string
+  fontFamily: string
+  fontSize: number
+  fontWeight: number | string
+  lineHeight: number | string
+  letterSpacing: number | string
+  color?: string
+}
+
+export interface DesignSystemToken {
+  id: string
+  name: string
+  type: 'color' | 'typography' | 'spacing' | 'shadow' | 'radius'
+  value: string | number | Record<string, any>
+  description?: string
+}
+
+export interface DesignSystem {
+  colors: ColorToken[]
+  typography: TextStyleToken[]
+  tokens?: DesignSystemToken[]
 }
 
 export interface ProjectSettings {
@@ -137,7 +250,11 @@ export interface Project {
   groups: PageGroup[]
   wireframes: Record<string, WireframePageData>
   settings?: ProjectSettings
+  designSystem?: DesignSystem
+  studio?: import('./studio').StudioDocument
 }
+
+export * from './studio'
 
 export interface GeneratorPromptInput {
   description: string

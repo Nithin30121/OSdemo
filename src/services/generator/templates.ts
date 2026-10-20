@@ -1,4 +1,5 @@
 import { Project, Page, Section, GlobalSection, CanvasEdge, PageGroup, WireframePageData, WireframeComponent } from '../../types'
+import { getLayoutedElements } from '../../components/canvas/layoutUtils'
 
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`
@@ -50,27 +51,106 @@ export function createBlankProject(name = 'Untitled Sitemap'): Project {
     position: 1,
   }
 
-  const featuresSection: Section = {
+  const logoSection: Section = {
     id: generateId('sec'),
     pageId: homePageId,
-    name: 'Core Features Grid',
-    description: '3-column grid highlighting key benefits and capabilities',
+    name: 'Logo Section',
+    description: 'Show key customers and trusted brand partners',
+    type: 'content',
+    color: '#64748b',
+    isGlobal: false,
+    position: 2,
+  }
+
+  const howItWorksSection: Section = {
+    id: generateId('sec'),
+    pageId: homePageId,
+    name: 'How It Works Section',
+    description: 'Describe the 3-step workflow from sitemap to wireframe',
+    type: 'features',
+    color: '#06b6d4',
+    isGlobal: false,
+    position: 3,
+  }
+
+  const featureSection: Section = {
+    id: generateId('sec'),
+    pageId: homePageId,
+    name: 'Feature Section',
+    description: 'Describe the main visual planning features',
     type: 'features',
     color: '#10b981',
     isGlobal: false,
-    position: 2,
+    position: 4,
+  }
+
+  const resultsSection: Section = {
+    id: generateId('sec'),
+    pageId: homePageId,
+    name: 'Results & Metrics Section',
+    description: 'Display user adoption stats and performance metrics',
+    type: 'statistics',
+    color: '#f59e0b',
+    isGlobal: false,
+    position: 5,
+  }
+
+  const testimonialSection: Section = {
+    id: generateId('sec'),
+    pageId: homePageId,
+    name: 'Testimonial Section',
+    description: 'Customer reviews and feedback from design leads',
+    type: 'testimonials',
+    color: '#ec4899',
+    isGlobal: false,
+    position: 6,
+  }
+
+  const ctaSection: Section = {
+    id: generateId('sec'),
+    pageId: homePageId,
+    name: 'CTA Section',
+    description: 'Call to action encouraging trial registrations',
+    type: 'cta',
+    color: '#f43f5e',
+    isGlobal: false,
+    position: 7,
+  }
+
+  const faqSection: Section = {
+    id: generateId('sec'),
+    pageId: homePageId,
+    name: 'FAQ Section',
+    description: 'Frequently asked questions regarding export and plans',
+    type: 'faq',
+    color: '#6366f1',
+    isGlobal: false,
+    position: 8,
   }
 
   const footerSection: Section = {
     id: generateId('sec'),
     pageId: homePageId,
     globalSectionId: globalFooter.id,
-    name: 'Global Footer',
-    description: 'Links, newsletter, and copyright',
+    name: 'Footer',
+    description: 'Directory links, social handles, and copyright',
     type: 'footer',
     isGlobal: true,
-    position: 3,
+    position: 9,
   }
+
+  const homeSections = [
+    navSection,
+    heroSection,
+    logoSection,
+    howItWorksSection,
+    featureSection,
+    resultsSection,
+    testimonialSection,
+    ctaSection,
+    faqSection,
+    footerSection,
+  ]
 
   const homePage: Page = {
     id: homePageId,
@@ -79,7 +159,7 @@ export function createBlankProject(name = 'Untitled Sitemap'): Project {
     description: 'Primary landing page introducing the brand and core value propositions',
     type: 'landing',
     parentId: null,
-    sectionIds: [navSection.id, heroSection.id, featuresSection.id, footerSection.id],
+    sectionIds: homeSections.map((s) => s.id),
     position: { x: 250, y: 100 },
     visibility: 'published',
     notes: 'Primary SEO gateway for search engine indexing',
@@ -88,59 +168,17 @@ export function createBlankProject(name = 'Untitled Sitemap'): Project {
 
   const wireframe: WireframePageData = {
     pageId: homePageId,
-    components: [
-      {
-        id: generateId('wf'),
-        sectionId: navSection.id,
-        type: 'navbar',
-        name: 'Navigation Bar',
-        props: {
-          headline: 'BrandLogo',
-          subtext: 'Products, Solutions, Pricing, Resources',
-          buttonText: 'Get Started',
-        },
+    components: homeSections.map((sec) => ({
+      id: generateId('wf'),
+      sectionId: sec.id,
+      type: sec.type,
+      name: sec.name,
+      props: {
+        headline: sec.name,
+        subtext: sec.description,
+        buttonText: sec.type === 'hero' ? 'Start Building Free' : sec.type === 'cta' ? 'Get Started' : undefined,
       },
-      {
-        id: generateId('wf'),
-        sectionId: heroSection.id,
-        type: 'hero',
-        name: 'Hero Header',
-        props: {
-          headline: 'Design Sitemaps & Wireframes in Seconds',
-          subtext: 'The open-source visual architect for modern web planners and product teams.',
-          buttonText: 'Start Building Free',
-          secondaryButtonText: 'Watch Interactive Demo',
-          badgeText: '✨ Open Source & Local First',
-        },
-      },
-      {
-        id: generateId('wf'),
-        sectionId: featuresSection.id,
-        type: 'features',
-        name: 'Features Grid',
-        props: {
-          headline: 'Engineered for Clarity & Speed',
-          subtext: 'Everything you need to map out information architecture before writing code.',
-          columns: 3,
-          placeholderItems: [
-            { title: 'Visual Sitemap Canvas', desc: 'Drag, connect, and restructure pages hierarchically.' },
-            { title: 'Global Sync Sections', desc: 'Update headers and footers across every page automatically.' },
-            { title: 'Instant Wireframes', desc: 'Turn abstract sections into tactile low-fidelity mockups.' },
-          ],
-        },
-      },
-      {
-        id: generateId('wf'),
-        sectionId: footerSection.id,
-        type: 'footer',
-        name: 'Site Footer',
-        props: {
-          headline: 'OpenSitemap Platform',
-          subtext: 'Built with React, Vite, and modern web standards.',
-          buttonText: 'Subscribe',
-        },
-      },
-    ],
+    })),
     viewport: 'desktop',
     layoutConfiguration: {
       spacing: 'comfortable',
@@ -149,14 +187,14 @@ export function createBlankProject(name = 'Untitled Sitemap'): Project {
     },
   }
 
-  return {
+  const blankProject: Project = {
     id,
     name,
     description: 'Visual sitemap and information architecture plan',
     createdAt: now,
     updatedAt: now,
     pages: [homePage],
-    sections: [navSection, heroSection, featuresSection, footerSection],
+    sections: homeSections,
     globalSections: [globalNav, globalFooter],
     edges: [],
     groups: [],
@@ -167,7 +205,33 @@ export function createBlankProject(name = 'Untitled Sitemap'): Project {
       defaultTheme: 'system',
       canvasOrientation: 'TB',
     },
+    designSystem: {
+      colors: [
+        { id: 'clr_primary', name: 'Primary Blue', hex: '#1769E8', category: 'primary' },
+        { id: 'clr_secondary', name: 'Purple Accent', hex: '#873FF0', category: 'secondary' },
+        { id: 'clr_accent', name: 'Bright Yellow', hex: '#F9E52B', category: 'accent' },
+        { id: 'clr_dark', name: 'Deep Background', hex: '#080D19', category: 'neutral' },
+        { id: 'clr_surface', name: 'Card Surface', hex: '#0D1527', category: 'neutral' },
+        { id: 'clr_light', name: 'Warm Cream Text', hex: '#F8F5EF', category: 'neutral' },
+        { id: 'clr_alert', name: 'Crimson Alert', hex: '#F04444', category: 'semantic' },
+        { id: 'clr_success', name: 'Emerald Success', hex: '#10B981', category: 'semantic' },
+      ],
+      typography: [
+        { id: 'txt_h1', name: 'Display H1', fontFamily: 'Inter', fontSize: 36, fontWeight: 800, lineHeight: 1.2, letterSpacing: -0.5 },
+        { id: 'txt_h2', name: 'Heading H2', fontFamily: 'Inter', fontSize: 24, fontWeight: 700, lineHeight: 1.3, letterSpacing: -0.2 },
+        { id: 'txt_h3', name: 'Heading H3', fontFamily: 'Inter', fontSize: 18, fontWeight: 600, lineHeight: 1.4, letterSpacing: 0 },
+        { id: 'txt_body_lg', name: 'Body Large', fontFamily: 'Inter', fontSize: 16, fontWeight: 400, lineHeight: 1.5, letterSpacing: 0 },
+        { id: 'txt_body', name: 'Body Default', fontFamily: 'Inter', fontSize: 14, fontWeight: 400, lineHeight: 1.5, letterSpacing: 0 },
+        { id: 'txt_caption', name: 'Caption / Meta', fontFamily: 'Inter', fontSize: 12, fontWeight: 500, lineHeight: 1.4, letterSpacing: 0.2 },
+      ],
+    },
   }
+
+  const layouted = getLayoutedElements(blankProject.pages, blankProject.edges, 'TB', blankProject.sections)
+  blankProject.pages = layouted.pages
+  blankProject.edges = layouted.edges
+
+  return blankProject
 }
 
 export interface TemplateDefinition {
@@ -349,6 +413,10 @@ export function createSaaSTemplate(): Project {
     layoutConfiguration: { spacing: 'comfortable', showWireframeLabels: true, theme: 'wireframe-clean' },
   }
 
+  const layouted = getLayoutedElements(p.pages, p.edges, 'TB', p.sections)
+  p.pages = layouted.pages
+  p.edges = layouted.edges
+
   return p
 }
 
@@ -485,6 +553,10 @@ export function createECommerceTemplate(): Project {
     layoutConfiguration: { spacing: 'comfortable', showWireframeLabels: true, theme: 'wireframe-clean' },
   }
 
+  const layoutedEcom = getLayoutedElements(p.pages, p.edges, 'TB', p.sections)
+  p.pages = layoutedEcom.pages
+  p.edges = layoutedEcom.edges
+
   return p
 }
 
@@ -598,10 +670,269 @@ export function createAgencyTemplate(): Project {
     layoutConfiguration: { spacing: 'comfortable', showWireframeLabels: true, theme: 'wireframe-clean' },
   }
 
+  const layoutedAgency = getLayoutedElements(p.pages, p.edges, 'TB', p.sections)
+  p.pages = layoutedAgency.pages
+  p.edges = layoutedAgency.edges
+
+  return p
+}
+
+export function createKLConnectTemplate(): Project {
+  const p = createBlankProject('KLConnect')
+  p.description = 'Student portal information architecture and academic schedule planner.'
+
+  // Global header & footer
+  const globalNav = p.globalSections[0]
+  const globalFooter = p.globalSections[1]
+
+  p.pages = []
+  p.sections = []
+  p.edges = []
+  p.wireframes = {}
+
+  interface PageDef {
+    name: string
+    slug: string
+    category: string
+    color: string
+    type: Page['type']
+    parentIdx: number | null
+    description: string
+    sections: Array<{ name: string; description?: string; type: Section['type']; isFeatured?: boolean }>
+  }
+
+  const pageDefs: PageDef[] = [
+    {
+      name: 'Home Page',
+      slug: '/',
+      category: '01 / DASHBOARD',
+      color: 'cobalt',
+      type: 'dashboard',
+      parentIdx: null,
+      description: 'Main dashboard for students. Shows today’s timetable, next class, attendance and quick actions.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Hero Section', description: 'Your academic overview at a glance', type: 'hero', isFeatured: true },
+        { name: "Today's Timetable", description: 'Next class and countdown', type: 'content' },
+        { name: 'Quick Actions', description: 'Shortcuts to important features', type: 'features' },
+        { name: 'Feature Section', description: 'Core benefits for students', type: 'features' },
+        { name: 'Testimonials', description: 'What students say', type: 'testimonials' },
+        { name: 'CTA Section', description: 'Get started now', type: 'cta' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Timetable',
+      slug: '/timetable',
+      category: '02 / ACADEMICS',
+      color: 'red',
+      type: 'content',
+      parentIdx: 0,
+      description: 'Weekly schedule and daily classroom lecture timetable.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Weekly Calendar', description: 'View your class schedule', type: 'content' },
+        { name: 'Daily View', type: 'content' },
+        { name: 'Subject Details', type: 'content' },
+        { name: 'Faculty & Classroom', type: 'content' },
+        { name: 'Filters & Search', type: 'content' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Attendance',
+      slug: '/attendance',
+      category: '03 / TRACKING',
+      color: 'yellow',
+      type: 'content',
+      parentIdx: 0,
+      description: 'Attendance tracking, target percentage calculators, and insights.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Overall Attendance', description: 'Your current percentage', type: 'statistics' },
+        { name: 'Subject-wise Attendance', type: 'content' },
+        { name: 'Target Calculator', type: 'form' },
+        { name: 'LTPS Breakdown', type: 'statistics' },
+        { name: 'Charts & Insights', type: 'chart' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Grades',
+      slug: '/grades',
+      category: '04 / RESULTS',
+      color: 'purple',
+      type: 'content',
+      parentIdx: 0,
+      description: 'Semester results, CGPA overview, and grade reports.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Semester Results', type: 'content' },
+        { name: 'Subject Performance', type: 'statistics' },
+        { name: 'CGPA Overview', type: 'statistics' },
+        { name: 'Academic History', type: 'content' },
+        { name: 'Download Reports', type: 'cta' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Friends',
+      slug: '/friends',
+      category: '05 / SOCIAL',
+      color: 'teal',
+      type: 'content',
+      parentIdx: 0,
+      description: 'Connect with peers, compare timetables, and find free periods.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'My Friends', type: 'team' },
+        { name: 'Compare Timetables', type: 'features' },
+        { name: 'Common Free Periods', type: 'content' },
+        { name: 'Share Schedule', type: 'cta' },
+        { name: 'Friend Requests', type: 'form' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Notifications',
+      slug: '/notifications',
+      category: '06 / ALERTS',
+      color: 'pink',
+      type: 'utility',
+      parentIdx: 0,
+      description: 'Real-time class reminders, schedule changes, and exam announcements.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Class Reminders', type: 'content' },
+        { name: 'Timetable Changes', type: 'content' },
+        { name: 'Exam Announcements', type: 'content' },
+        { name: 'Attendance Warnings', type: 'content' },
+        { name: 'General Notifications', type: 'content' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Profile',
+      slug: '/profile',
+      category: '07 / ACCOUNT',
+      color: 'cream',
+      type: 'custom',
+      parentIdx: 3, // Connected under Grades in tree
+      description: 'User preferences, account details, and security settings.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Personal Information', type: 'form' },
+        { name: 'Preferences', type: 'content' },
+        { name: 'Privacy & Security', type: 'content' },
+        { name: 'Connected Accounts', type: 'content' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+    {
+      name: 'Login / Sign Up',
+      slug: '/auth',
+      category: '08 / AUTH',
+      color: 'cobalt',
+      type: 'auth',
+      parentIdx: 3, // Connected under Grades in tree
+      description: 'Authentication and student registration gateway.',
+      sections: [
+        { name: 'Navbar', type: 'navbar' },
+        { name: 'Login Form', type: 'form' },
+        { name: 'Registration', type: 'form' },
+        { name: 'University Verification', type: 'content' },
+        { name: 'Forgot Password', type: 'form' },
+        { name: 'Footer', type: 'footer' },
+      ],
+    },
+  ]
+
+  const createdPageIds: string[] = []
+
+  pageDefs.forEach((def, pIdx) => {
+    const pageId = generateId('page')
+    createdPageIds.push(pageId)
+
+    const sectionIds: string[] = []
+    def.sections.forEach((sDef, sIdx) => {
+      const secId = generateId('sec')
+      sectionIds.push(secId)
+
+      let gSecId: string | null = null
+      if (sDef.name === 'Navbar') gSecId = globalNav.id
+      if (sDef.name === 'Footer') gSecId = globalFooter.id
+
+      p.sections.push({
+        id: secId,
+        pageId,
+        globalSectionId: gSecId,
+        name: sDef.name,
+        description: sDef.description || '',
+        type: sDef.type,
+        color: sDef.isFeatured ? '#F9E52B' : undefined,
+        isGlobal: !!gSecId,
+        position: sIdx,
+        notes: sDef.isFeatured ? 'featured' : '',
+      })
+    })
+
+    const parentId = def.parentIdx !== null ? createdPageIds[def.parentIdx] : null
+
+    p.pages.push({
+      id: pageId,
+      name: def.name,
+      slug: def.slug,
+      description: def.description,
+      type: def.type,
+      parentId,
+      sectionIds,
+      position: { x: 0, y: 0 },
+      visibility: 'published',
+      notes: def.category,
+      color: def.color,
+    })
+
+    if (parentId) {
+      p.edges.push({
+        id: generateId('edge'),
+        source: parentId,
+        target: pageId,
+      })
+    }
+
+    p.wireframes[pageId] = {
+      pageId,
+      components: sectionIds.map((secId, i) => ({
+        id: generateId('wf'),
+        sectionId: secId,
+        type: def.sections[i].type,
+        name: def.sections[i].name,
+        props: {
+          headline: def.sections[i].name,
+          subtext: def.sections[i].description,
+        },
+      })),
+      viewport: 'desktop',
+      layoutConfiguration: { spacing: 'comfortable', showWireframeLabels: true, theme: 'wireframe-clean' },
+    }
+  })
+
+  const layouted = getLayoutedElements(p.pages, p.edges, 'TB', p.sections)
+  p.pages = layouted.pages
+  p.edges = layouted.edges
+
   return p
 }
 
 export const TEMPLATES: TemplateDefinition[] = [
+  {
+    id: 'klconnect',
+    name: 'KLConnect (Neo-Brutalist)',
+    category: 'Education & Student Portal',
+    description: 'Vibrant neo-brutalist student portal with colorful cards, cream sections, and clean tree hierarchy.',
+    tags: ['Neo-Brutalist', 'Dashboard', 'Academics', 'Poster'],
+    createProject: createKLConnectTemplate,
+  },
   {
     id: 'saas',
     name: 'SaaS Platform & App',
@@ -635,3 +966,4 @@ export const TEMPLATES: TemplateDefinition[] = [
     createProject: () => createBlankProject('New Sitemap Project'),
   },
 ]
+

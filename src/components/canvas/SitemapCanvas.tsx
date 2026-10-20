@@ -1,18 +1,16 @@
-import React, { useMemo, useCallback, useRef } from 'react'
+import React, { useMemo, useCallback, useEffect, useState } from 'react'
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
   Connection,
   Edge,
   Node,
   MarkerType,
-  applyNodeChanges,
   NodeChange,
+  useReactFlow,
+  ReactFlowProvider,
 } from '@xyflow/react'
 import {
   Plus,
@@ -22,17 +20,20 @@ import {
   Workflow,
   Sparkles,
   Layers,
-  Search,
+  Focus,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useUIStore } from '../../store/useUIStore'
 import { PageNode } from './PageNode'
+import { calculateNodeHeight } from './layoutUtils'
 
 const nodeTypes = {
   pageNode: PageNode as any,
 }
 
-export const SitemapCanvas: React.FC = () => {
+const CanvasInner: React.FC = () => {
   const project = useProjectStore((s) => s.project)
   const addPage = useProjectStore((s) => s.addPage)
   const connectPages = useProjectStore((s) => s.connectPages)
@@ -52,11 +53,14 @@ export const SitemapCanvas: React.FC = () => {
   const filterGroupId = useUIStore((s) => s.filterGroupId)
   const theme = useUIStore((s) => s.theme)
 
+  const { fitView, zoomIn, zoomOut, setCenter } = useReactFlow()
+  const [layoutDirection, setLayoutDirection] = useState<'TB' | 'LR'>('TB')
+
   const isDarkMode =
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
-  // Transform project pages into React Flow Nodes
+  // Transform project pages into React Flow Nodes with dynamic height awareness
   const nodes: Node[] = useMemo(() => {
     if (!project) return []
 
@@ -71,7 +75,7 @@ export const SitemapCanvas: React.FC = () => {
         !q ||
         page.name.toLowerCase().includes(q) ||
         page.slug.toLowerCase().includes(q) ||
-        pageSections.some((s) => s.name.toLowerCase().includes(q))
+        pageSections.some((s) => s.name.toLowerCase().includes(q) || (s.description && s.description.toLowerCase().includes(q)))
 
       // Filter type match
       const matchesType = filterType === 'all' || page.type === filterType
@@ -90,12 +94,12 @@ export const SitemapCanvas: React.FC = () => {
           sections: pageSections,
           isSelected,
         },
-        className: isDimmed ? 'opacity-30 transition-opacity pointer-events-none' : 'transition-opacity',
+        className: isDimmed ? 'opacity-25 transition-opacity pointer-events-none' : 'transition-opacity',
       }
     })
   }, [project, selectedPageId, searchQuery, filterType, filterGroupId])
 
-  // Transform project edges into React Flow Edges
+  // Transform project edges into clean connecting lines
   const edges: Edge[] = useMemo(() => {
     if (!project) return []
 
@@ -106,17 +110,17 @@ export const SitemapCanvas: React.FC = () => {
       type: 'smoothstep',
       animated: false,
       style: {
-        stroke: isDarkMode ? '#475569' : '#94a3b8',
-        strokeWidth: 2,
+        stroke: '#64748B',
+        strokeWidth: 1.5,
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: isDarkMode ? '#64748b' : '#94a3b8',
-        width: 16,
-        height: 16,
+        color: '#64748B',
+        width: 12,
+        height: 12,
       },
     }))
-  }, [project, isDarkMode])
+  }, [project])
 
   // Node position drag handler
   const handleNodesChange = useCallback(
@@ -159,10 +163,54 @@ export const SitemapCanvas: React.FC = () => {
 
   const handleAddRootPage = () => {
     addPage({
-      name: 'New Top-Level Page',
+      name: 'New Page',
       slug: `/page-${(project?.pages.length || 0) + 1}`,
     })
   }
+
+  const handleAutoLayout = useCallback(
+    (direction?: 'TB' | 'LR') => {
+      const d = direction || layoutDirection
+      applyAutoLayout(d)
+      setTimeout(() => {
+        fitView({ padding: 0.15, maxZoom: 1.0 })
+      }, 50)
+    },
+    [applyAutoLayout, fitView, layoutDirection],
+  )
+
+  const handleCenterSelected = useCallback(() => {
+    if (!selectedPageId || !project) return
+    const page = project.pages.find((p) => p.id === selectedPageId)
+    if (!page) return
+    const height = calculateNodeHeight(page, project.sections)
+    setCenter(page.position.x + 135, page.position.y + height / 2, { duration: 350, zoom: 1.0 })
+  }, [selectedPageId, project, setCenter])
+
+  // Global canvas shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const targetTag = (e.target as HTMLElement)?.tagName
+      if (['INPUT', 'TEXTAREA'].includes(targetTag)) return
+
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (canUndo) undo()
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y')
+      ) {
+        e.preventDefault()
+        if (canRedo) redo()
+      } else if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+        e.preventDefault()
+        fitView({ padding: 0.15, maxZoom: 1.0 })
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [canUndo, canRedo, undo, redo, fitView])
 
   if (!project) {
     return (
@@ -173,7 +221,7 @@ export const SitemapCanvas: React.FC = () => {
   }
 
   return (
-    <div className="relative flex-1 h-full w-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
+    <div className="relative flex-1 h-full w-full bg-[#030817] overflow-hidden">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -183,113 +231,56 @@ export const SitemapCanvas: React.FC = () => {
         onEdgeClick={handleEdgeClick}
         onPaneClick={handleCanvasClick}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.15}
-        maxZoom={2.5}
-        defaultViewport={{ x: 100, y: 100, zoom: 0.85 }}
+        fitViewOptions={{ padding: 0.15, maxZoom: 1.0 }}
+        minZoom={0.2}
+        maxZoom={2.0}
+        defaultViewport={{ x: 60, y: 60, zoom: 0.95 }}
         proOptions={{ hideAttribution: true }}
       >
         <Background
-          color={isDarkMode ? '#334155' : '#cbd5e1'}
-          gap={24}
-          size={1.5}
-          className="opacity-60"
+          color="#1B263B"
+          gap={74}
+          size={3.5}
+          className="opacity-75"
         />
         <Controls
           showInteractive={false}
-          className="!bottom-4 !left-4 !bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 !rounded-xl !shadow-md [&>button]:!border-b [&>button]:!border-slate-100 dark:[&>button]:!border-slate-800"
+          className="!bottom-4 !left-4 !bg-[#2B2B2B] !border !border-[#3B3B3B] !rounded-xl !shadow-xl [&>button]:!bg-[#2B2B2B] [&>button]:!text-[#F3F3F3] [&>button]:!border-b [&>button]:!border-[#3B3B3B] hover:[&>button]:!bg-[#353535]"
         />
         <MiniMap
           nodeColor={(node: any) => {
             const page = node?.data?.page
-            return page?.color || '#3b82f6'
+            return page?.color ? '#1769E8' : '#873FF0'
           }}
-          nodeStrokeWidth={3}
-          maskColor={isDarkMode ? 'rgba(15, 23, 42, 0.75)' : 'rgba(241, 245, 249, 0.75)'}
-          className="!bottom-4 !right-4 !bg-white/80 dark:!bg-slate-900/80 !backdrop-blur !border !border-slate-200 dark:!border-slate-800 !rounded-xl !shadow-md overflow-hidden"
+          nodeStrokeWidth={2}
+          maskColor="rgba(32, 32, 32, 0.85)"
+          className="!bottom-4 !right-4 !bg-[#252525]/90 !backdrop-blur !border !border-[#3B3B3B] !rounded-xl !shadow-xl overflow-hidden"
           zoomable
           pannable
         />
       </ReactFlow>
 
-      {/* Floating Canvas Quick Actions Bar */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 p-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg">
-        <button
-          onClick={handleAddRootPage}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium shadow-sm transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Page
-        </button>
-
-        <button
-          onClick={() => setGeneratorOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-medium shadow-sm transition-colors"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          AI Generator
-        </button>
-
-        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
-
-        <button
-          onClick={() => applyAutoLayout('TB')}
-          title="Auto-Layout Top-to-Bottom Tree"
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
-        >
-          <Workflow className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={() => applyAutoLayout('LR')}
-          title="Auto-Layout Left-to-Right Hierarchy"
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
-        >
-          <Layers className="w-4 h-4 rotate-90" />
-        </button>
-
-        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
-
-        <button
-          onClick={undo}
-          disabled={!canUndo}
-          title="Undo (Cmd+Z)"
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-
-        <button
-          onClick={redo}
-          disabled={!canRedo}
-          title="Redo (Cmd+Shift+Z)"
-          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-        >
-          <RotateCw className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* Empty State Banner if no pages */}
       {project.pages.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto max-w-sm text-center p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl">
-            <Layers className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          <div className="pointer-events-auto max-w-sm text-center p-6 bg-[#252525] border border-[#3B3B3B] rounded-2xl shadow-2xl">
+            <Layers className="w-10 h-10 text-[#B0B0B0] mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-[#F3F3F3]">
               Sitemap is empty
             </h3>
-            <p className="text-xs text-slate-500 mt-1 mb-4">
+            <p className="text-xs text-[#B0B0B0] mt-1 mb-4">
               Create your first page or generate an entire site structure using the AI generator.
             </p>
             <div className="flex items-center justify-center gap-2">
               <button
                 onClick={handleAddRootPage}
-                className="px-3.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+                className="px-3.5 py-1.5 rounded-lg bg-[#1769E8] text-white text-xs font-semibold hover:bg-[#155ECC]"
               >
                 Add Homepage
               </button>
               <button
                 onClick={() => setGeneratorOpen(true)}
-                className="px-3.5 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-700"
+                className="px-3.5 py-1.5 rounded-lg bg-[#873FF0] text-white text-xs font-semibold hover:bg-[#7834E0]"
               >
                 Generate Sitemap
               </button>
@@ -300,3 +291,8 @@ export const SitemapCanvas: React.FC = () => {
     </div>
   )
 }
+
+export const SitemapCanvas: React.FC = () => {
+  return <CanvasInner />
+}
+

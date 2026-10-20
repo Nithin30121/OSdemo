@@ -1,4 +1,5 @@
 import { GeneratorPromptInput, Page, Section, GlobalSection, CanvasEdge, WireframePageData, WireframeComponent } from '../../types'
+import { getLayoutedElements } from '../../components/canvas/layoutUtils'
 
 function generateId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`
@@ -402,12 +403,14 @@ export function generateRuleBasedSitemap(input: GeneratorPromptInput): Generated
     }
   })
 
+  const layouted = getLayoutedElements(pages, edges, 'TB', sections)
+
   return {
     name: `${brandTitle} Sitemap`,
-    pages,
+    pages: layouted.pages,
     sections,
     globalSections: [globalNav, globalFooter],
-    edges,
+    edges: layouted.edges,
     wireframes,
   }
 }

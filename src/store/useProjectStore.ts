@@ -1,5 +1,20 @@
 import { create } from 'zustand'
-import { Project, Page, Section, GlobalSection, CanvasEdge, PageGroup, WireframePageData, WireframeComponent } from '../types'
+import {
+  Project,
+  Page,
+  Section,
+  GlobalSection,
+  CanvasEdge,
+  PageGroup,
+  WireframePageData,
+  WireframeComponent,
+  VisualElement,
+  ElementLayout,
+  ElementStyle,
+  DesignSystem,
+  ColorToken,
+  TextStyleToken,
+} from '../types'
 import { saveProject, loadProject as loadProjectFromDb, initializeInitialProject } from '../services/storage/projectStorage'
 import { getLayoutedElements } from '../components/canvas/layoutUtils'
 import { TEMPLATES } from '../services/generator/templates'
@@ -63,10 +78,37 @@ interface ProjectStoreState {
   deleteGroup: (groupId: string) => void
   assignPageGroup: (pageId: string, groupId: string | null) => void
 
-  // Wireframes
+  // Wireframes & Visual Editing
   updateWireframe: (pageId: string, data: WireframePageData) => void
   updateWireframeComponentProps: (pageId: string, componentId: string, newProps: Partial<WireframeComponent['props']>) => void
+  updateWireframeComponentLayout: (pageId: string, componentId: string, layout: Partial<ElementLayout>) => void
+  updateWireframeComponentStyle: (pageId: string, componentId: string, style: Partial<ElementStyle>) => void
+  updateWireframeComponentDetails: (pageId: string, componentId: string, updates: Partial<WireframeComponent>) => void
+  reorderWireframeComponents: (pageId: string, newOrderedIds: string[]) => void
+  deleteWireframeComponent: (pageId: string, componentId: string) => void
+  duplicateWireframeComponent: (pageId: string, componentId: string) => WireframeComponent | null
+  toggleLockWireframeComponent: (pageId: string, componentId: string) => void
+  toggleHideWireframeComponent: (pageId: string, componentId: string) => void
   syncWireframeFromSections: (pageId: string) => void
+
+  // Visual Elements (Freeform & nested visual elements)
+  addVisualElement: (pageId: string, partial: Partial<VisualElement>, sectionId?: string) => VisualElement
+  updateVisualElement: (pageId: string, elementId: string, updates: Partial<VisualElement>) => void
+  batchUpdateVisualElements: (pageId: string, updates: Array<{ id: string; layout?: Partial<ElementLayout>; style?: Partial<ElementStyle>; content?: string; props?: Record<string, any> }>) => void
+  deleteVisualElement: (pageId: string, elementId: string) => void
+  duplicateVisualElement: (pageId: string, elementId: string) => VisualElement | null
+  reorderVisualElements: (pageId: string, newOrderedIds: string[]) => void
+  toggleLockVisualElement: (pageId: string, elementId: string) => void
+  toggleHideVisualElement: (pageId: string, elementId: string) => void
+
+  // Design System & Tokens
+  updateDesignSystem: (updates: Partial<DesignSystem>) => void
+  addColorToken: (token: Omit<ColorToken, 'id'>) => ColorToken
+  updateColorToken: (id: string, updates: Partial<ColorToken>) => void
+  deleteColorToken: (id: string) => void
+  addTextStyleToken: (token: Omit<TextStyleToken, 'id'>) => TextStyleToken
+  updateTextStyleToken: (id: string, updates: Partial<TextStyleToken>) => void
+  deleteTextStyleToken: (id: string) => void
 
   // Layout & Generation
   applyAutoLayout: (direction?: 'TB' | 'LR') => void
@@ -89,6 +131,166 @@ function snapshot(project: Project): Project {
   return JSON.parse(JSON.stringify(project))
 }
 
+export function generateVisualElementsForSections(pageSections: Section[], pageName: string): VisualElement[] {
+  const elements: VisualElement[] = []
+  let currentY = 24
+  const containerWidth = 1060
+
+  // Always include a Top Navigation bar
+  const navId = generateId('elem_nav')
+  elements.push({
+    id: navId,
+    name: 'Navigation Bar',
+    type: 'frame',
+    layout: { x: 20, y: currentY, width: containerWidth, height: 60, rotation: 0, isLocked: false, isHidden: false, zIndex: 1 },
+    style: { fill: '#0E172A', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 8 },
+  })
+  elements.push({
+    id: generateId('elem_logo'),
+    name: 'Brand Logo',
+    type: 'text',
+    content: pageName.toUpperCase(),
+    layout: { x: 40, y: currentY + 16, width: 200, height: 28, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+    style: { typography: { fontFamily: 'Inter', fontSize: 16, fontWeight: 700, color: '#FFFFFF' } },
+    parentId: navId,
+  })
+  elements.push({
+    id: generateId('elem_nav_btn'),
+    name: 'Nav Action Button',
+    type: 'button',
+    content: 'Get Started',
+    layout: { x: 900, y: currentY + 10, width: 140, height: 40, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+    style: { fill: '#1769E8', cornerRadius: 6, typography: { color: '#FFFFFF', fontWeight: 600, fontSize: 13 } },
+    parentId: navId,
+  })
+  currentY += 80
+
+  if (pageSections.length === 0) {
+    const heroId = generateId('elem_hero')
+    elements.push({
+      id: heroId,
+      name: 'Hero Section Frame',
+      type: 'frame',
+      layout: { x: 20, y: currentY, width: containerWidth, height: 300, rotation: 0, isLocked: false, isHidden: false, zIndex: 1 },
+      style: { fill: '#101B33', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 12 },
+    })
+    elements.push({
+      id: generateId('elem_hero_title'),
+      name: 'Headline Text',
+      type: 'text',
+      content: `${pageName} - Modern Experience`,
+      layout: { x: 50, y: currentY + 36, width: 650, height: 50, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+      style: { typography: { fontFamily: 'Inter', fontSize: 32, fontWeight: 700, color: '#FFFFFF' } },
+      parentId: heroId,
+    })
+    elements.push({
+      id: generateId('elem_hero_sub'),
+      name: 'Subhead Text',
+      type: 'text',
+      content: 'Craft visually stunning user flows and components with responsive Figma-inspired editing.',
+      layout: { x: 50, y: currentY + 96, width: 580, height: 44, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+      style: { typography: { fontFamily: 'Inter', fontSize: 15, fontWeight: 400, color: '#94A3B8' } },
+      parentId: heroId,
+    })
+    elements.push({
+      id: generateId('elem_hero_btn'),
+      name: 'CTA Button',
+      type: 'button',
+      content: 'Explore Architecture',
+      layout: { x: 50, y: currentY + 160, width: 180, height: 44, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+      style: { fill: '#873FF0', cornerRadius: 8, typography: { color: '#FFFFFF', fontWeight: 600, fontSize: 14 } },
+      parentId: heroId,
+    })
+    currentY += 320
+
+    elements.push({
+      id: generateId('elem_card_1'),
+      name: 'Feature Card 1',
+      type: 'card',
+      content: 'Visual Canvas',
+      layout: { x: 20, y: currentY, width: 330, height: 180, rotation: 0, isLocked: false, isHidden: false, zIndex: 1 },
+      style: { fill: '#0E1526', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 10 },
+    })
+    elements.push({
+      id: generateId('elem_card_2'),
+      name: 'Feature Card 2',
+      type: 'card',
+      content: 'Design System',
+      layout: { x: 385, y: currentY, width: 330, height: 180, rotation: 0, isLocked: false, isHidden: false, zIndex: 1 },
+      style: { fill: '#0E1526', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 10 },
+    })
+    elements.push({
+      id: generateId('elem_card_3'),
+      name: 'Feature Card 3',
+      type: 'card',
+      content: 'Live Synchronization',
+      layout: { x: 750, y: currentY, width: 330, height: 180, rotation: 0, isLocked: false, isHidden: false, zIndex: 1 },
+      style: { fill: '#0E1526', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 10 },
+    })
+  } else {
+    pageSections.forEach((sec) => {
+      const secFrameId = generateId(`elem_sec_${sec.type}`)
+      const height = sec.type === 'hero' ? 260 : sec.type === 'features' ? 240 : 180
+      elements.push({
+        id: secFrameId,
+        name: `${sec.name} Frame`,
+        type: 'frame',
+        layout: { x: 20, y: currentY, width: containerWidth, height, rotation: 0, isLocked: false, isHidden: false, zIndex: 1 },
+        style: { fill: sec.type === 'hero' ? '#101B33' : '#0B1120', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 12 },
+        sectionId: sec.id,
+      })
+      elements.push({
+        id: generateId('elem_text'),
+        name: `${sec.name} Title`,
+        type: 'text',
+        content: sec.name,
+        layout: { x: 50, y: currentY + 24, width: 600, height: 40, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+        style: { typography: { fontFamily: 'Inter', fontSize: 24, fontWeight: 700, color: '#FFFFFF' } },
+        parentId: secFrameId,
+        sectionId: sec.id,
+      })
+      if (sec.description) {
+        elements.push({
+          id: generateId('elem_desc'),
+          name: `${sec.name} Description`,
+          type: 'text',
+          content: sec.description,
+          layout: { x: 50, y: currentY + 70, width: 550, height: 44, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+          style: { typography: { fontFamily: 'Inter', fontSize: 14, fontWeight: 400, color: '#94A3B8' } },
+          parentId: secFrameId,
+          sectionId: sec.id,
+        })
+      }
+      if (sec.type === 'hero' || sec.type === 'cta') {
+        elements.push({
+          id: generateId('elem_btn'),
+          name: `${sec.name} Action`,
+          type: 'button',
+          content: sec.type === 'hero' ? 'Get Started' : 'Learn More',
+          layout: { x: 50, y: currentY + 130, width: 150, height: 42, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+          style: { fill: '#1769E8', cornerRadius: 8, typography: { color: '#FFFFFF', fontWeight: 600, fontSize: 13 } },
+          parentId: secFrameId,
+          sectionId: sec.id,
+        })
+      } else if (sec.type === 'features') {
+        elements.push({
+          id: generateId('elem_shape'),
+          name: `${sec.name} Feature Card`,
+          type: 'card',
+          content: 'Key Feature Highlight',
+          layout: { x: 620, y: currentY + 24, width: 420, height: 180, rotation: 0, isLocked: false, isHidden: false, zIndex: 2 },
+          style: { fill: '#131C31', stroke: { color: '#1E293B', width: 1, style: 'solid' }, cornerRadius: 10 },
+          parentId: secFrameId,
+          sectionId: sec.id,
+        })
+      }
+      currentY += height + 20
+    })
+  }
+
+  return elements
+}
+
 export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   project: null,
   isLoaded: false,
@@ -101,12 +303,34 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   init: async () => {
     try {
       const proj = await initializeInitialProject()
+      let updated = false
+      const updatedWfs = { ...proj.wireframes }
+      proj.pages.forEach((p) => {
+        const wf = updatedWfs[p.id]
+        if (!wf || !wf.elements || wf.elements.length === 0) {
+          const pageSections = proj.sections.filter((s) => s.pageId === p.id)
+          const elements = generateVisualElementsForSections(pageSections, p.name)
+          updatedWfs[p.id] = {
+            pageId: p.id,
+            components: wf?.components || [],
+            viewport: wf?.viewport || 'desktop',
+            layoutConfiguration: wf?.layoutConfiguration || {
+              spacing: 'comfortable',
+              showWireframeLabels: true,
+              theme: 'wireframe-clean',
+            },
+            elements,
+          }
+          updated = true
+        }
+      })
+      const finalProj = updated ? { ...proj, wireframes: updatedWfs } : proj
       set({
-        project: proj,
+        project: finalProj,
         isLoaded: true,
         past: [],
         future: [],
-        lastSaved: proj.updatedAt,
+        lastSaved: finalProj.updatedAt,
       })
     } catch (err: any) {
       set({ error: err.message, isLoaded: true })
@@ -994,10 +1218,712 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().save()
   },
 
+  updateWireframeComponentLayout: (pageId: string, componentId: string, layoutUpdates: Partial<ElementLayout>) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    const updatedComponents = origWf.components.map((c) =>
+      c.id === componentId
+        ? {
+            ...c,
+            layout: {
+              x: c.layout?.x ?? 0,
+              y: c.layout?.y ?? 0,
+              width: c.layout?.width ?? 1100,
+              height: c.layout?.height ?? 240,
+              rotation: c.layout?.rotation ?? 0,
+              isLocked: c.layout?.isLocked ?? false,
+              isHidden: c.layout?.isHidden ?? false,
+              zIndex: c.layout?.zIndex ?? 0,
+              aspectRatioLocked: c.layout?.aspectRatioLocked ?? false,
+              ...layoutUpdates,
+            },
+          }
+        : c,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: updatedComponents },
+        },
+      },
+    })
+    get().save()
+  },
+
+  updateWireframeComponentStyle: (pageId: string, componentId: string, styleUpdates: Partial<ElementStyle>) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    const updatedComponents = origWf.components.map((c) =>
+      c.id === componentId
+        ? {
+            ...c,
+            style: {
+              ...c.style,
+              ...styleUpdates,
+            },
+          }
+        : c,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: updatedComponents },
+        },
+      },
+    })
+    get().save()
+  },
+
+  updateWireframeComponentDetails: (pageId: string, componentId: string, updates: Partial<WireframeComponent>) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    const updatedComponents = origWf.components.map((c) =>
+      c.id === componentId ? { ...c, ...updates } : c,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: updatedComponents },
+        },
+      },
+    })
+    get().save()
+  },
+
+  reorderWireframeComponents: (pageId: string, newOrderedIds: string[]) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    const compMap = new Map(origWf.components.map((c) => [c.id, c]))
+    const reordered: WireframeComponent[] = []
+    newOrderedIds.forEach((id) => {
+      const c = compMap.get(id)
+      if (c) reordered.push(c)
+    })
+    origWf.components.forEach((c) => {
+      if (!newOrderedIds.includes(c.id)) reordered.push(c)
+    })
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: reordered },
+        },
+      },
+    })
+    get().save()
+  },
+
+  deleteWireframeComponent: (pageId: string, componentId: string) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: {
+            ...origWf,
+            components: origWf.components.filter((c) => c.id !== componentId),
+          },
+        },
+      },
+    })
+    get().save()
+  },
+
+  duplicateWireframeComponent: (pageId: string, componentId: string) => {
+    const { project, past } = get()
+    if (!project) return null
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return null
+
+    const found = origWf.components.find((c) => c.id === componentId)
+    if (!found) return null
+
+    const duplicated: WireframeComponent = {
+      ...JSON.parse(JSON.stringify(found)),
+      id: generateId('wf'),
+      name: `${found.name} (Copy)`,
+      layout: found.layout
+        ? {
+            ...found.layout,
+            y: found.layout.y + 30,
+            x: found.layout.x + 30,
+          }
+        : undefined,
+    }
+
+    const idx = origWf.components.findIndex((c) => c.id === componentId)
+    const newComps = [...origWf.components]
+    newComps.splice(idx + 1, 0, duplicated)
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: newComps },
+        },
+      },
+    })
+    get().save()
+    return duplicated
+  },
+
+  toggleLockWireframeComponent: (pageId: string, componentId: string) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    const updated = origWf.components.map((c) =>
+      c.id === componentId ? { ...c, isLocked: !c.isLocked } : c,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: updated },
+        },
+      },
+    })
+    get().save()
+  },
+
+  toggleHideWireframeComponent: (pageId: string, componentId: string) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf) return
+
+    const updated = origWf.components.map((c) =>
+      c.id === componentId ? { ...c, isHidden: !c.isHidden } : c,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, components: updated },
+        },
+      },
+    })
+    get().save()
+  },
+
+  // Visual Elements implementation
+  addVisualElement: (pageId: string, partial: Partial<VisualElement>, sectionId?: string) => {
+    const { project, past } = get()
+    if (!project) throw new Error('No active project')
+
+    const origWf: WireframePageData = project.wireframes[pageId] || {
+      pageId,
+      components: [],
+      viewport: 'desktop',
+      layoutConfiguration: {
+        spacing: 'comfortable',
+        showWireframeLabels: true,
+        theme: 'wireframe-clean',
+      },
+      elements: [],
+    }
+
+    const newElement: VisualElement = {
+      id: generateId('elem'),
+      name: partial.name || `${partial.type || 'Element'}`,
+      type: partial.type || 'container',
+      layout: {
+        x: partial.layout?.x ?? 40,
+        y: partial.layout?.y ?? 40,
+        width: partial.layout?.width ?? 200,
+        height: partial.layout?.height ?? 60,
+        rotation: partial.layout?.rotation ?? 0,
+        isLocked: partial.layout?.isLocked ?? false,
+        isHidden: partial.layout?.isHidden ?? false,
+        zIndex: (origWf.elements?.length || 0) + 1,
+        aspectRatioLocked: partial.layout?.aspectRatioLocked ?? false,
+      },
+      style: {
+        fill: partial.style?.fill,
+        opacity: partial.style?.opacity ?? 1,
+        cornerRadius: partial.style?.cornerRadius ?? 8,
+        stroke: partial.style?.stroke,
+        shadow: partial.style?.shadow,
+        typography: partial.style?.typography,
+        textStyleId: partial.style?.textStyleId,
+      },
+      content: partial.content || (partial.type === 'text' ? 'Heading Text' : partial.type === 'button' ? 'Click Me' : ''),
+      props: partial.props || {},
+      parentId: partial.parentId || null,
+      sectionId: sectionId || partial.sectionId,
+    }
+
+    const currentElements = origWf.elements || []
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: {
+            ...origWf,
+            elements: [...currentElements, newElement],
+          },
+        },
+      },
+    })
+    get().save()
+    return newElement
+  },
+
+  updateVisualElement: (pageId: string, elementId: string, updates: Partial<VisualElement>) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return
+
+    const updatedElements = origWf.elements.map((el) => {
+      if (el.id !== elementId) return el
+      return {
+        ...el,
+        ...updates,
+        layout: updates.layout ? { ...el.layout, ...updates.layout } : el.layout,
+        style: updates.style ? { ...el.style, ...updates.style } : el.style,
+        props: updates.props ? { ...el.props, ...updates.props } : el.props,
+      }
+    })
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, elements: updatedElements },
+        },
+      },
+    })
+    get().save()
+  },
+
+  batchUpdateVisualElements: (pageId: string, updates: Array<{ id: string; layout?: Partial<ElementLayout>; style?: Partial<ElementStyle>; content?: string; props?: Record<string, any> }>) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return
+
+    const updateMap = new Map(updates.map((u) => [u.id, u]))
+    const updatedElements = origWf.elements.map((el) => {
+      const u = updateMap.get(el.id)
+      if (!u) return el
+      return {
+        ...el,
+        content: u.content !== undefined ? u.content : el.content,
+        layout: u.layout ? { ...el.layout, ...u.layout } : el.layout,
+        style: u.style ? { ...el.style, ...u.style } : el.style,
+        props: u.props ? { ...el.props, ...u.props } : el.props,
+      }
+    })
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, elements: updatedElements },
+        },
+      },
+    })
+    get().save()
+  },
+
+  deleteVisualElement: (pageId: string, elementId: string) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: {
+            ...origWf,
+            elements: origWf.elements.filter((el) => el.id !== elementId),
+          },
+        },
+      },
+    })
+    get().save()
+  },
+
+  duplicateVisualElement: (pageId: string, elementId: string) => {
+    const { project, past } = get()
+    if (!project) return null
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return null
+
+    const found = origWf.elements.find((el) => el.id === elementId)
+    if (!found) return null
+
+    const duplicate: VisualElement = {
+      ...JSON.parse(JSON.stringify(found)),
+      id: generateId('elem'),
+      name: `${found.name} (Copy)`,
+      layout: {
+        ...found.layout,
+        x: found.layout.x + 20,
+        y: found.layout.y + 20,
+        zIndex: (origWf.elements.length || 0) + 1,
+      },
+    }
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: {
+            ...origWf,
+            elements: [...origWf.elements, duplicate],
+          },
+        },
+      },
+    })
+    get().save()
+    return duplicate
+  },
+
+  reorderVisualElements: (pageId: string, newOrderedIds: string[]) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return
+
+    const elemMap = new Map(origWf.elements.map((el) => [el.id, el]))
+    const reordered: VisualElement[] = []
+    newOrderedIds.forEach((id, idx) => {
+      const el = elemMap.get(id)
+      if (el) reordered.push({ ...el, layout: { ...el.layout, zIndex: idx + 1 } })
+    })
+    origWf.elements.forEach((el) => {
+      if (!newOrderedIds.includes(el.id)) reordered.push(el)
+    })
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, elements: reordered },
+        },
+      },
+    })
+    get().save()
+  },
+
+  toggleLockVisualElement: (pageId: string, elementId: string) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return
+
+    const updated = origWf.elements.map((el) =>
+      el.id === elementId ? { ...el, layout: { ...el.layout, isLocked: !el.layout.isLocked } } : el,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, elements: updated },
+        },
+      },
+    })
+    get().save()
+  },
+
+  toggleHideVisualElement: (pageId: string, elementId: string) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const origWf = project.wireframes[pageId]
+    if (!origWf || !origWf.elements) return
+
+    const updated = origWf.elements.map((el) =>
+      el.id === elementId ? { ...el, layout: { ...el.layout, isHidden: !el.layout.isHidden } } : el,
+    )
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        wireframes: {
+          ...project.wireframes,
+          [pageId]: { ...origWf, elements: updated },
+        },
+      },
+    })
+    get().save()
+  },
+
+  // Design System Actions
+  updateDesignSystem: (updates: Partial<DesignSystem>) => {
+    const { project, past } = get()
+    if (!project) return
+
+    const currentDs: DesignSystem = project.designSystem || {
+      colors: [],
+      typography: [],
+    }
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...currentDs,
+          ...updates,
+        },
+      },
+    })
+    get().save()
+  },
+
+  addColorToken: (token: Omit<ColorToken, 'id'>) => {
+    const { project, past } = get()
+    if (!project) throw new Error('No active project')
+
+    const currentDs: DesignSystem = project.designSystem || {
+      colors: [],
+      typography: [],
+    }
+
+    const newToken: ColorToken = {
+      ...token,
+      id: generateId('clr'),
+    }
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...currentDs,
+          colors: [...currentDs.colors, newToken],
+        },
+      },
+    })
+    get().save()
+    return newToken
+  },
+
+  updateColorToken: (id: string, updates: Partial<ColorToken>) => {
+    const { project, past } = get()
+    if (!project || !project.designSystem) return
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...project.designSystem,
+          colors: project.designSystem.colors.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+        },
+      },
+    })
+    get().save()
+  },
+
+  deleteColorToken: (id: string) => {
+    const { project, past } = get()
+    if (!project || !project.designSystem) return
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...project.designSystem,
+          colors: project.designSystem.colors.filter((c) => c.id !== id),
+        },
+      },
+    })
+    get().save()
+  },
+
+  addTextStyleToken: (token: Omit<TextStyleToken, 'id'>) => {
+    const { project, past } = get()
+    if (!project) throw new Error('No active project')
+
+    const currentDs: DesignSystem = project.designSystem || {
+      colors: [],
+      typography: [],
+    }
+
+    const newToken: TextStyleToken = {
+      ...token,
+      id: generateId('txt'),
+    }
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...currentDs,
+          typography: [...currentDs.typography, newToken],
+        },
+      },
+    })
+    get().save()
+    return newToken
+  },
+
+  updateTextStyleToken: (id: string, updates: Partial<TextStyleToken>) => {
+    const { project, past } = get()
+    if (!project || !project.designSystem) return
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...project.designSystem,
+          typography: project.designSystem.typography.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+        },
+      },
+    })
+    get().save()
+  },
+
+  deleteTextStyleToken: (id: string) => {
+    const { project, past } = get()
+    if (!project || !project.designSystem) return
+
+    set({
+      past: [...past, snapshot(project)].slice(-MAX_HISTORY),
+      future: [],
+      project: {
+        ...project,
+        updatedAt: new Date().toISOString(),
+        designSystem: {
+          ...project.designSystem,
+          typography: project.designSystem.typography.filter((t) => t.id !== id),
+        },
+      },
+    })
+    get().save()
+  },
+
   syncWireframeFromSections: (pageId: string) => {
     const { project, past } = get()
     if (!project) return
 
+    const page = project.pages.find((p) => p.id === pageId)
     const pageSections = project.sections
       .filter((s) => s.pageId === pageId)
       .sort((a, b) => a.position - b.position)
@@ -1027,9 +1953,12 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       }
     })
 
+    const newElements = generateVisualElementsForSections(pageSections, page?.name || 'Page')
+
     const updatedWf: WireframePageData = {
       pageId,
       components: newComponents,
+      elements: newElements,
       viewport: existingWf ? existingWf.viewport : 'desktop',
       layoutConfiguration: existingWf
         ? existingWf.layoutConfiguration
@@ -1059,7 +1988,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const { project, past } = get()
     if (!project || project.pages.length === 0) return
 
-    const { pages, edges } = getLayoutedElements(project.pages, project.edges, direction)
+    const { pages, edges } = getLayoutedElements(project.pages, project.edges, direction, project.sections)
 
     set({
       past: [...past, snapshot(project)].slice(-MAX_HISTORY),
@@ -1079,7 +2008,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     if (!project) return
 
     if (mode === 'replace') {
-      const layouted = getLayoutedElements(generated.pages, generated.edges, 'TB')
+      const layouted = getLayoutedElements(generated.pages, generated.edges, 'TB', generated.sections)
       const newProj: Project = {
         ...project,
         name: generated.name || project.name,
@@ -1113,7 +2042,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       const existingGNames = new Set(project.globalSections.map((g) => g.name))
       const newGlobals = generated.globalSections.filter((g) => !existingGNames.has(g.name))
 
-      const layouted = getLayoutedElements(mergedPages, mergedEdges, 'TB')
+      const layouted = getLayoutedElements(mergedPages, mergedEdges, 'TB', mergedSections)
 
       set({
         past: [...past, snapshot(project)].slice(-MAX_HISTORY),

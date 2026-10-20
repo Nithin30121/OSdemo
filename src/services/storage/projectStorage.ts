@@ -1,7 +1,7 @@
 import { getDB } from './db'
 import { Project } from '../../types'
 import { validateProjectData } from '../../schemas/projectSchema'
-import { createSaaSTemplate } from '../generator/templates'
+import { createSaaSTemplate, createKLConnectTemplate } from '../generator/templates'
 
 const ACTIVE_PROJECT_KEY = 'active_project_id'
 
@@ -124,9 +124,10 @@ export async function initializeInitialProject(): Promise<Project> {
     }
   }
 
-  // Create default SaaS project on first launch
-  const initial = createSaaSTemplate()
+  // Create default KLConnect neo-brutalist project on first launch
+  const initial = createKLConnectTemplate()
   await saveProject(initial)
   await setActiveProjectId(initial.id)
   return initial
 }
+

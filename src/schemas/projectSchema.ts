@@ -94,6 +94,82 @@ export const CanvasEdgeSchema = z.object({
   type: z.string().optional(),
 })
 
+export const ElementStrokeSchema = z.object({
+  color: z.string().default('#000000'),
+  width: z.number().default(1),
+  style: z.enum(['solid', 'dashed', 'dotted']).default('solid'),
+  position: z.enum(['inside', 'center', 'outside']).default('inside'),
+})
+
+export const ElementShadowSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(4),
+  blur: z.number().default(12),
+  spread: z.number().default(0),
+  color: z.string().default('rgba(0,0,0,0.15)'),
+  inset: z.boolean().default(false),
+})
+
+export const ElementTypographySchema = z.object({
+  fontFamily: z.string().optional(),
+  fontWeight: z.union([z.number(), z.string()]).optional(),
+  fontSize: z.number().optional(),
+  lineHeight: z.union([z.number(), z.string()]).optional(),
+  letterSpacing: z.union([z.number(), z.string()]).optional(),
+  textAlign: z.enum(['left', 'center', 'right', 'justify']).optional(),
+  color: z.string().optional(),
+  textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
+})
+
+export const ElementLayoutSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  width: z.number().default(120),
+  height: z.number().default(48),
+  rotation: z.number().default(0),
+  isLocked: z.boolean().default(false),
+  isHidden: z.boolean().default(false),
+  zIndex: z.number().default(0),
+  aspectRatioLocked: z.boolean().default(false),
+})
+
+export const ElementStyleSchema = z.object({
+  fill: z.string().optional(),
+  opacity: z.number().optional(),
+  cornerRadius: z.number().optional(),
+  stroke: ElementStrokeSchema.optional(),
+  shadow: ElementShadowSchema.optional(),
+  typography: ElementTypographySchema.optional(),
+  textStyleId: z.string().optional(),
+})
+
+export const VisualElementTypeSchema = z.enum([
+  'frame',
+  'text',
+  'button',
+  'shape',
+  'image',
+  'container',
+  'card',
+  'input',
+  'table',
+  'navbar',
+  'badge',
+  'custom',
+])
+
+export const VisualElementSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: VisualElementTypeSchema,
+  layout: ElementLayoutSchema,
+  style: ElementStyleSchema.default({}),
+  content: z.string().optional(),
+  props: z.record(z.string(), z.any()).optional(),
+  parentId: z.string().nullable().optional(),
+  sectionId: z.string().optional(),
+})
+
 export const WireframeComponentSchema = z.object({
   id: z.string().min(1),
   sectionId: z.string().min(1),
@@ -121,6 +197,11 @@ export const WireframeComponentSchema = z.object({
       customNotes: z.string().optional(),
     })
     .default({}),
+  layout: ElementLayoutSchema.optional(),
+  style: ElementStyleSchema.optional(),
+  elements: z.array(VisualElementSchema).optional(),
+  isLocked: z.boolean().optional(),
+  isHidden: z.boolean().optional(),
 })
 
 export const WireframePageDataSchema = z.object({
@@ -138,6 +219,39 @@ export const WireframePageDataSchema = z.object({
       showWireframeLabels: true,
       theme: 'wireframe-clean',
     }),
+  elements: z.array(VisualElementSchema).optional(),
+})
+
+export const ColorTokenSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  hex: z.string().min(1),
+  category: z.enum(['primary', 'secondary', 'accent', 'neutral', 'semantic']).default('primary'),
+})
+
+export const TextStyleTokenSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  fontFamily: z.string().default('Inter'),
+  fontSize: z.number().default(16),
+  fontWeight: z.union([z.number(), z.string()]).default(400),
+  lineHeight: z.union([z.number(), z.string()]).default(1.5),
+  letterSpacing: z.union([z.number(), z.string()]).default(0),
+  color: z.string().optional(),
+})
+
+export const DesignSystemTokenSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.enum(['color', 'typography', 'spacing', 'shadow', 'radius']),
+  value: z.union([z.string(), z.number(), z.record(z.string(), z.any())]),
+  description: z.string().optional(),
+})
+
+export const DesignSystemSchema = z.object({
+  colors: z.array(ColorTokenSchema).default([]),
+  typography: z.array(TextStyleTokenSchema).default([]),
+  tokens: z.array(DesignSystemTokenSchema).optional(),
 })
 
 export const ProjectSchema = z.object({
@@ -158,6 +272,8 @@ export const ProjectSchema = z.object({
       canvasOrientation: z.enum(['TB', 'LR']).default('TB'),
     })
     .optional(),
+  designSystem: DesignSystemSchema.optional(),
+  studio: z.any().optional(),
 })
 
 export type ProjectInput = z.infer<typeof ProjectSchema>

@@ -1,54 +1,101 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
-  Layers,
-  Layout,
-  Printer,
+  Plus,
   Sparkles,
+  Workflow,
+  Maximize2,
+  RotateCcw,
+  RotateCw,
+  Search,
+  ChevronDown,
   Download,
-  Upload,
+  Settings,
   FolderOpen,
+  Upload,
+  Cpu,
   Sun,
   Moon,
   Laptop,
-  RotateCcw,
-  RotateCw,
-  Cpu,
-  CheckCircle2,
-  Loader2,
-  Edit2,
-  Share2,
 } from 'lucide-react'
+import { useReactFlow } from '@xyflow/react'
 import { useProjectStore } from '../../store/useProjectStore'
-import { useUIStore, ActiveView, ThemeMode } from '../../store/useUIStore'
+import { useUIStore } from '../../store/useUIStore'
 
 export const Header: React.FC = () => {
   const project = useProjectStore((s) => s.project)
-  const isSaving = useProjectStore((s) => s.isSaving)
-  const lastSaved = useProjectStore((s) => s.lastSaved)
-  const setProjectDetails = useProjectStore((s) => s.setProjectDetails)
+  const addPage = useProjectStore((s) => s.addPage)
+  const applyAutoLayout = useProjectStore((s) => s.applyAutoLayout)
   const undo = useProjectStore((s) => s.undo)
   const redo = useProjectStore((s) => s.redo)
   const canUndo = useProjectStore((s) => s.canUndo())
   const canRedo = useProjectStore((s) => s.canRedo())
 
-  const activeView = useUIStore((s) => s.activeView)
-  const setActiveView = useUIStore((s) => s.setActiveView)
-  const theme = useUIStore((s) => s.theme)
-  const setTheme = useUIStore((s) => s.setTheme)
   const setGeneratorOpen = useUIStore((s) => s.setGeneratorOpen)
   const setExportOpen = useUIStore((s) => s.setExportOpen)
   const setImportOpen = useUIStore((s) => s.setImportOpen)
   const setDashboardOpen = useUIStore((s) => s.setDashboardOpen)
   const setOllamaSettingsOpen = useUIStore((s) => s.setOllamaSettingsOpen)
+  const theme = useUIStore((s) => s.theme)
+  const setTheme = useUIStore((s) => s.setTheme)
 
-  const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [titleVal, setTitleVal] = useState(project?.name || 'Untitled Sitemap')
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [currentZoom, setCurrentZoom] = useState(100)
 
-  const handleSaveTitle = () => {
-    if (titleVal.trim() && project) {
-      setProjectDetails(titleVal.trim())
+  // Safe access to react flow instance provided by ReactFlowProvider in App.tsx
+  const reactFlow = useReactFlow()
+
+  useEffect(() => {
+    if (!reactFlow) return
+    const updateZoom = () => {
+      try {
+        const z = reactFlow.getZoom()
+        if (typeof z === 'number' && !isNaN(z)) {
+          setCurrentZoom(Math.round(z * 100))
+        }
+      } catch {
+        // Safe fallback
+      }
     }
-    setIsEditingTitle(false)
+    const interval = setInterval(updateZoom, 500)
+    return () => clearInterval(interval)
+  }, [reactFlow])
+
+  const handleAddPage = () => {
+    addPage({
+      name: `Page ${(project?.pages.length || 0) + 1}`,
+      slug: `/page-${(project?.pages.length || 0) + 1}`,
+      color: 'cobalt',
+    })
+  }
+
+  const handleAutoLayout = () => {
+    applyAutoLayout('TB')
+    setTimeout(() => {
+      try {
+        reactFlow.fitView({ padding: 0.15, maxZoom: 1.0 })
+      } catch {
+        // Fallback
+      }
+    }, 50)
+  }
+
+  const handleFitView = () => {
+    try {
+      reactFlow.fitView({ padding: 0.15, maxZoom: 1.0 })
+    } catch {
+      // Fallback
+    }
+  }
+
+  const handleSetZoom = (scale: number) => {
+    try {
+      reactFlow.zoomTo(scale, { duration: 200 })
+      setCurrentZoom(Math.round(scale * 100))
+    } catch {
+      // Fallback
+    }
+    setZoomMenuOpen(false)
   }
 
   const toggleTheme = () => {
@@ -58,155 +105,240 @@ export const Header: React.FC = () => {
   }
 
   return (
-    <header className="h-13 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between z-30 flex-shrink-0 select-none">
-      {/* Left: Project title & status */}
-      <div className="flex items-center gap-3 min-w-0">
+    <header className="h-14 bg-[#202020] border-b border-[#3B3B3B] px-4 flex items-center justify-between z-30 flex-shrink-0 select-none text-[#F3F3F3]">
+      {/* 1. Left: Brand Icon, Condensed Wordmark & Mission Tagline */}
+      <div className="flex items-center gap-3">
         <button
           onClick={() => setDashboardOpen(true)}
-          title="Open Project Dashboard & Templates"
-          className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          title="Project Dashboard & Templates"
+          className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
         >
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-sm">
-            <Layers className="w-4 h-4" />
+          {/* Purple 8-Petal Asterisk Flower Logo */}
+          <div className="w-8 h-8 rounded-xl bg-[#873FF0] flex items-center justify-center shadow-md flex-shrink-0">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor">
+              <circle cx="12" cy="12" r="2.8" />
+              <circle cx="12" cy="4.2" r="2.4" />
+              <circle cx="12" cy="19.8" r="2.4" />
+              <circle cx="4.2" cy="12" r="2.4" />
+              <circle cx="19.8" cy="12" r="2.4" />
+              <circle cx="6.5" cy="6.5" r="2.4" />
+              <circle cx="17.5" cy="17.5" r="2.4" />
+              <circle cx="6.5" cy="17.5" r="2.4" />
+              <circle cx="17.5" cy="6.5" r="2.4" />
+            </svg>
           </div>
-          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 hidden sm:inline">
-            OpenSitemap
-          </span>
+
+          {/* Bold Condensed Title */}
+          <div className="flex flex-col text-left leading-none">
+            <span className="font-display font-black text-white text-base tracking-tight uppercase leading-[0.9]">
+              OPEN
+            </span>
+            <span className="font-display font-black text-white text-base tracking-tight uppercase leading-[0.9]">
+              SITEMAP
+            </span>
+          </div>
         </button>
 
-        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
+        {/* 4-Line Mission Tagline */}
+        <div className="hidden xl:flex flex-col text-[7.5px] font-extrabold text-[#B0B0B0] tracking-wider uppercase leading-[1.1] pl-3 border-l border-[#3B3B3B] select-none">
+          <span>PLAN</span>
+          <span>DESIGN</span>
+          <span>STRUCTURE</span>
+          <span>BUILD</span>
+        </div>
 
-        {/* Project Name */}
-        {isEditingTitle ? (
-          <input
-            type="text"
-            value={titleVal}
-            onChange={(e) => setTitleVal(e.target.value)}
-            onBlur={handleSaveTitle}
-            onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
-            className="px-2 py-0.5 rounded border border-blue-500 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none"
-            autoFocus
-          />
-        ) : (
-          <div
-            onClick={() => {
-              setTitleVal(project?.name || '')
-              setIsEditingTitle(true)
-            }}
-            className="group/title flex items-center gap-1.5 cursor-pointer max-w-[180px] sm:max-w-xs truncate"
+        {/* Add Page Button */}
+        <button
+          onClick={handleAddPage}
+          className="ml-3 h-8 px-3.5 rounded-lg bg-[#2B2B2B] hover:bg-[#353535] active:scale-[0.98] border border-[#3B3B3B] text-[#F3F3F3] text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+        >
+          <Plus className="w-4 h-4 stroke-[2.5]" />
+          <span>Add Page</span>
+        </button>
+
+        {/* Generate with AI Button */}
+        <button
+          onClick={() => setGeneratorOpen(true)}
+          className="h-8 px-3.5 rounded-lg bg-[#873FF0] hover:bg-[#7834E0] active:scale-[0.98] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+        >
+          <Sparkles className="w-3.5 h-3.5 fill-current" />
+          <span>Generate with AI</span>
+        </button>
+      </div>
+
+      {/* 2. Center: Canvas Controls Pill (Auto Layout, Fit View, Undo, Redo, Zoom) */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center bg-[#2B2B2B] border border-[#3B3B3B] rounded-lg p-0.5 text-[#B0B0B0]">
+          {/* Auto Layout */}
+          <button
+            onClick={handleAutoLayout}
+            title="Auto Layout Tree"
+            className="p-1.5 rounded hover:bg-[#353535] hover:text-[#F3F3F3] transition-colors"
           >
-            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
-              {project?.name || 'Untitled Sitemap'}
-            </span>
-            <Edit2 className="w-3 h-3 text-slate-400 opacity-0 group-hover/title:opacity-100" />
-          </div>
-        )}
+            <Workflow className="w-4 h-4" />
+          </button>
 
-        {/* Autosave status indicator */}
-        <div className="hidden md:flex items-center gap-1 text-[11px] text-slate-400">
-          {isSaving ? (
-            <span className="flex items-center gap-1 text-blue-500">
-              <Loader2 className="w-3 h-3 animate-spin" /> Saving...
-            </span>
-          ) : (
-            <span
-              title={`Saved locally in IndexedDB ${lastSaved ? new Date(lastSaved).toLocaleTimeString() : ''}`}
-              className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"
+          {/* Fit to View */}
+          <button
+            onClick={handleFitView}
+            title="Fit to Screen"
+            className="p-1.5 rounded hover:bg-[#353535] hover:text-[#F3F3F3] transition-colors"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
+          {/* Undo */}
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo"
+            className="p-1.5 rounded hover:bg-[#353535] hover:text-[#F3F3F3] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+
+          {/* Redo */}
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo"
+            className="p-1.5 rounded hover:bg-[#353535] hover:text-[#F3F3F3] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+          >
+            <RotateCw className="w-4 h-4" />
+          </button>
+
+          <div className="h-4 w-px bg-[#3B3B3B] mx-0.5" />
+
+          {/* Zoom Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setZoomMenuOpen(!zoomMenuOpen)}
+              className="px-2 py-1 rounded hover:bg-[#353535] hover:text-[#F3F3F3] flex items-center gap-1 text-xs font-medium transition-colors"
             >
-              <CheckCircle2 className="w-3 h-3" /> Saved
-            </span>
-          )}
+              <Search className="w-3 h-3 text-[#B0B0B0]" />
+              <span className="text-[#F3F3F3]">{currentZoom}%</span>
+              <ChevronDown className="w-3 h-3 text-[#B0B0B0]" />
+            </button>
+
+            {zoomMenuOpen && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-full mt-1.5 w-32 bg-[#252525] border border-[#3B3B3B] rounded-lg shadow-2xl py-1 text-xs text-[#B0B0B0] z-50"
+              >
+                {[50, 75, 100, 125, 150, 200].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => handleSetZoom(val / 100)}
+                    className={`w-full px-3 py-1.5 text-left hover:bg-[#303030] hover:text-[#F3F3F3] flex items-center justify-between ${
+                      currentZoom === val ? 'text-[#F3F3F3] font-bold bg-[#303030]' : ''
+                    }`}
+                  >
+                    <span>{val}%</span>
+                  </button>
+                ))}
+                <div className="border-t border-[#3B3B3B] my-1" />
+                <button
+                  onClick={() => {
+                    handleFitView()
+                    setZoomMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-1.5 text-left hover:bg-[#303030] text-purple-400 font-medium"
+                >
+                  Fit to Screen
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Center: View Switcher (Sitemap vs Wireframe vs Print) */}
-      <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-        <button
-          onClick={() => setActiveView('canvas')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
-            activeView === 'canvas'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>Sitemap</span>
-        </button>
-
-        <button
-          onClick={() => setActiveView('wireframe')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
-            activeView === 'wireframe'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Layout className="w-3.5 h-3.5" />
-          <span>Wireframes</span>
-        </button>
-
-        <button
-          onClick={() => setActiveView('print')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
-            activeView === 'print'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-              : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Printer className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Print / Outline</span>
-        </button>
-      </div>
-
-      {/* Right: Actions (AI, Export, Import, Theme, Settings) */}
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => setGeneratorOpen(true)}
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-medium shadow-sm transition-all"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Generate
-        </button>
-
+      {/* 3. Right: Export button & User Profile Avatar */}
+      <div className="flex items-center gap-3">
+        {/* Export Button */}
         <button
           onClick={() => setExportOpen(true)}
-          title="Export Project (JSON, SVG, Markdown)"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium shadow-sm transition-colors"
+          className="h-8 px-3.5 rounded-lg bg-[#F59E0B] hover:bg-[#D97706] active:scale-[0.98] text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
         >
-          <Download className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Export</span>
+          <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+          <span>Export</span>
         </button>
 
-        <button
-          onClick={() => setImportOpen(true)}
-          title="Import JSON Project"
-          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          <Upload className="w-4 h-4" />
-        </button>
+        {/* User Profile Avatar (Red circle with 'NK') */}
+        <div className="relative">
+          <button
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            title="User Profile & Settings"
+            className="w-8 h-8 rounded-full bg-[#F04444] text-white font-extrabold text-xs flex items-center justify-center select-none shadow-sm hover:ring-2 hover:ring-white/20 transition-all"
+          >
+            NK
+          </button>
 
-        <button
-          onClick={() => setOllamaSettingsOpen(true)}
-          title="Local AI & Ollama Setup"
-          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          <Cpu className="w-4 h-4" />
-        </button>
+          {profileMenuOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-full mt-2 w-52 bg-[#252525] border border-[#3B3B3B] rounded-xl shadow-2xl py-1.5 text-xs text-[#B0B0B0] z-50 divide-y divide-[#3B3B3B]"
+            >
+              <div className="px-3 py-2">
+                <p className="font-bold text-[#F3F3F3]">Nithin Kumar</p>
+                <p className="text-[10px] text-[#B0B0B0] truncate">nithin@opensitemap.dev</p>
+              </div>
 
-        <button
-          onClick={toggleTheme}
-          title={`Theme: ${theme}`}
-          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          {theme === 'dark' ? (
-            <Moon className="w-4 h-4 text-purple-400" />
-          ) : theme === 'light' ? (
-            <Sun className="w-4 h-4 text-amber-500" />
-          ) : (
-            <Laptop className="w-4 h-4" />
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setDashboardOpen(true)
+                    setProfileMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-1.5 text-left hover:bg-[#303030] hover:text-[#F3F3F3] flex items-center gap-2"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-[#B0B0B0]" />
+                  <span>Projects & Templates</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setImportOpen(true)
+                    setProfileMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-1.5 text-left hover:bg-[#303030] hover:text-[#F3F3F3] flex items-center gap-2"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[#B0B0B0]" />
+                  <span>Import Project</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setOllamaSettingsOpen(true)
+                    setProfileMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-1.5 text-left hover:bg-[#303030] hover:text-[#F3F3F3] flex items-center gap-2"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-[#B0B0B0]" />
+                  <span>Local AI / Ollama</span>
+                </button>
+              </div>
+
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    toggleTheme()
+                    setProfileMenuOpen(false)
+                  }}
+                  className="w-full px-3 py-1.5 text-left hover:bg-[#303030] hover:text-[#F3F3F3] flex items-center gap-2"
+                >
+                  {theme === 'dark' ? (
+                    <Moon className="w-3.5 h-3.5 text-purple-400" />
+                  ) : theme === 'light' ? (
+                    <Sun className="w-3.5 h-3.5 text-amber-500" />
+                  ) : (
+                    <Laptop className="w-3.5 h-3.5 text-[#B0B0B0]" />
+                  )}
+                  <span>Theme: {theme}</span>
+                </button>
+              </div>
+            </div>
           )}
-        </button>
+        </div>
       </div>
     </header>
   )
 }
+
