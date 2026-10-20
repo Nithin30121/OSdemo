@@ -5,7 +5,7 @@ import { StudioFrameRenderer } from './StudioFrameRenderer'
 import { StudioNodeRenderer } from './StudioNodeRenderer'
 import { StudioBoundingBox } from './StudioBoundingBox'
 import { StudioToolPalette } from './StudioToolPalette'
-import { StudioCanvasCenterPoint } from './StudioInteractiveEye'
+import { StudioInteractiveEye } from './StudioInteractiveEye'
 import { StudioSmartGuidesOverlay } from './StudioSmartGuidesOverlay'
 import { Upload } from 'lucide-react'
 
@@ -526,8 +526,8 @@ export const StudioCanvas: React.FC = () => {
           zIndex: 2,
         }}
       >
-        {/* World Coordinate Origin Marker / Center Point (0, 0) */}
-        <StudioCanvasCenterPoint />
+        {/* World Coordinate Origin Marker: Eye Logo at (0, 0) */}
+        <StudioInteractiveEye />
 
         {/* 1. Frames & Framed Nodes */}
         {document.frames.map((frame) => {
