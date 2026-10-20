@@ -5,7 +5,7 @@ import { StudioFrameRenderer } from './StudioFrameRenderer'
 import { StudioNodeRenderer } from './StudioNodeRenderer'
 import { StudioBoundingBox } from './StudioBoundingBox'
 import { StudioToolPalette } from './StudioToolPalette'
-import { StudioInteractiveEye } from './StudioInteractiveEye'
+import { StudioCanvasCenterPoint } from './StudioInteractiveEye'
 import { StudioSmartGuidesOverlay } from './StudioSmartGuidesOverlay'
 import { Upload } from 'lucide-react'
 
@@ -511,13 +511,10 @@ export const StudioCanvas: React.FC = () => {
         className="absolute inset-0 pointer-events-none z-0"
       />
 
-      {/* LAYER 2: Center Static Logo Overlay (Fixed Screen-Space, Independent of Canvas Pan/Zoom) */}
-      <StudioInteractiveEye />
-
       {/* Floating Left Vertical Tools Toolbar */}
       <StudioToolPalette />
 
-      {/* LAYER 3: Main Infinite Canvas Scaled Transform Layer (Affected by Zoom and Pan) */}
+      {/* LAYER 2: Main Infinite Canvas Scaled Transform Layer (Affected by Zoom and Pan) */}
       <div
         id="studio-canvas-transform-layer"
         style={{
@@ -529,6 +526,9 @@ export const StudioCanvas: React.FC = () => {
           zIndex: 2,
         }}
       >
+        {/* World Coordinate Origin Marker / Center Point (0, 0) */}
+        <StudioCanvasCenterPoint />
+
         {/* 1. Frames & Framed Nodes */}
         {document.frames.map((frame) => {
           const childNodes = document.nodes.filter((n) => n.frameId === frame.id)

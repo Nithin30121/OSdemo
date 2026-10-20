@@ -1,62 +1,42 @@
 import React from 'react'
 
 /**
- * StudioCenterLogo (StudioInteractiveEye)
+ * StudioCanvasCenterPoint
  * 
- * Truly static eye-in-triangle watermark logo overlay.
+ * Minimal solid red dot (~6px in diameter) marking world coordinate (0, 0)
+ * on the infinite canvas.
  * 
- * Positioning Architecture:
- * - Studio viewport container (#studio-canvas-container): position: relative; overflow: hidden
- * - Logo overlay (#studio-center-logo-overlay): position: absolute; inset: 0; pointer-events: none; z-index: 1
- * - Logo (#studio-center-logo): position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%)
- * 
- * Completely independent of canvas zoom, pan, and document transformations.
- * Visually behind document content (canvas layer is z-index: 2), above dotted background (z-index: 0).
+ * - Rendered inside the transformed canvas layer (#studio-canvas-transform-layer)
+ *   alongside ordinary images, frames, and nodes.
+ * - Moves and scales naturally with canvas pan and zoom.
+ * - Pointer / trackpad movement alone does not move the dot.
+ * - Not dynamically centered in the viewport.
+ * - Non-selectable, non-draggable, pointer-events: none.
+ * - Excluded from exports, document objects, layers, and element counts.
+ * - Clear solid red without glow, label, icon, or surrounding graphic.
  */
-export const StudioInteractiveEye: React.FC = () => {
+export const StudioCanvasCenterPoint: React.FC = () => {
   return (
     <div
-      aria-label="Studio Center Logo Overlay"
-      id="studio-center-logo-overlay"
-      data-testid="studio-center-logo-overlay"
+      aria-label="Canvas World Center Point (0,0)"
+      id="studio-canvas-center-point"
+      data-testid="studio-canvas-center-point"
       style={{
         position: 'absolute',
-        inset: 0,
+        left: 0,
+        top: 0,
+        transform: 'translate(-50%, -50%)',
+        width: '6px',
+        height: '6px',
+        borderRadius: '50%',
+        backgroundColor: '#FF3B30', // Solid minimal red dot
         pointerEvents: 'none',
-        zIndex: 1,
+        zIndex: 5,
       }}
-    >
-      <div
-        id="studio-center-logo"
-        data-testid="studio-center-logo"
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '240px',
-          height: '240px',
-          pointerEvents: 'none',
-          opacity: 0.22,
-        }}
-        className="select-none flex items-center justify-center filter drop-shadow-[0_0_24px_rgba(255,255,255,0.06)]"
-      >
-        <img
-          src="/studio-center-logo.png"
-          alt="OpenSitemap Studio Logo"
-          id="studio-center-logo-img"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-          draggable={false}
-        />
-      </div>
-    </div>
+    />
   )
 }
 
-export const StudioCenterLogo = StudioInteractiveEye
+// Aliases for backwards compatibility with any existing imports
+export const StudioInteractiveEye = StudioCanvasCenterPoint
+export const StudioCenterLogo = StudioCanvasCenterPoint
